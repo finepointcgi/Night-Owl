@@ -22,7 +22,7 @@
     {
       "name": "opengrep",
       "binary": "opengrep",
-      "image": "nightjar-engines/opengrep",
+      "image": "nightowl-engines/opengrep",
       "build": "engines/opengrep",
       "upstream": [
         {
@@ -40,7 +40,7 @@
     {
       "name": "cppcheck",
       "binary": "cppcheck",
-      "image": "nightjar-engines/cppcheck",
+      "image": "nightowl-engines/cppcheck",
       "build": "engines/cppcheck",
       "upstream": [
         {
@@ -54,7 +54,7 @@
     {
       "name": "lizard",
       "binary": "lizard",
-      "image": "nightjar-engines/lizard",
+      "image": "nightowl-engines/lizard",
       "build": "engines/lizard",
       "upstream": [
         {
@@ -80,7 +80,7 @@
     {
       "name": "nuclei",
       "binary": "nuclei",
-      "image": "nightjar-engines/nuclei",
+      "image": "nightowl-engines/nuclei",
       "build": "engines/nuclei",
       "upstream": [
         {

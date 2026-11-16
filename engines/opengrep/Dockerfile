@@ -1,7 +1,7 @@
-# Nightjar engine image for Opengrep. Opengrep publishes signed release binaries but no
-# container image, so Nightjar builds one from the pinned binary, verified by SHA-256.
+# Night Owl engine image for Opengrep. Opengrep publishes signed release binaries but no
+# container image, so Night Owl builds one from the pinned binary, verified by SHA-256.
 #
-#   docker build -t nightjar-engines/opengrep:v1.33.1 engines/opengrep
+#   docker build -t nightowl-engines/opengrep:v1.33.1 engines/opengrep
 #
 # To bump: change VERSION and both hashes (from the release's asset digests), then
 # update the manifest with the new image digest.

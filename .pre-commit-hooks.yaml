@@ -1,7 +1,7 @@
 # For https://pre-commit.com users: add this repository to .pre-commit-config.yaml
-- id: nightjar-secrets
-  name: Nightjar secret scan (staged changes)
-  entry: nightjar precommit
+- id: nightowl-secrets
+  name: Night Owl secret scan (staged changes)
+  entry: nightowl precommit
   language: system
   pass_filenames: false
   always_run: true

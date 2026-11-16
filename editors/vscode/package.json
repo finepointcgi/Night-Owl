@@ -1,22 +1,22 @@
 {
-  "name": "nightjar",
-  "displayName": "Nightjar",
-  "description": "Shows Nightjar scan findings (SAST, secrets, dependencies, IaC) as editor diagnostics.",
+  "name": "nightowl",
+  "displayName": "Night Owl",
+  "description": "Shows Night Owl scan findings (SAST, secrets, dependencies, IaC) as editor diagnostics.",
   "version": "0.1.0",
-  "publisher": "nightjar",
+  "publisher": "nightowl",
   "license": "Apache-2.0",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Linters"],
   "main": "./extension.js",
   "activationEvents": ["onStartupFinished"],
   "contributes": {
-    "commands": [{ "command": "nightjar.scan", "title": "Nightjar: Scan workspace" }],
+    "commands": [{ "command": "nightowl.scan", "title": "Night Owl: Scan workspace" }],
     "configuration": {
-      "title": "Nightjar",
+      "title": "Night Owl",
       "properties": {
-        "nightjar.executable": { "type": "string", "default": "nightjar", "description": "Path to the nightjar CLI." },
-        "nightjar.scanOnSave": { "type": "boolean", "default": false, "description": "Rescan after saving a file (can be slow for large repositories)." },
-        "nightjar.extraArguments": { "type": "array", "items": { "type": "string" }, "default": ["--no-update"], "description": "Extra arguments for `nightjar scan`." }
+        "nightowl.executable": { "type": "string", "default": "nightowl", "description": "Path to the nightowl CLI." },
+        "nightowl.scanOnSave": { "type": "boolean", "default": false, "description": "Rescan after saving a file (can be slow for large repositories)." },
+        "nightowl.extraArguments": { "type": "array", "items": { "type": "string" }, "default": ["--no-update"], "description": "Extra arguments for `nightowl scan`." }
       }
     }
   }

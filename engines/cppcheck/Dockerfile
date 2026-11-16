@@ -1,10 +1,10 @@
-# Nightjar engine image for cppcheck (C/C++ static analysis), built from the pinned release
-# source tarball verified by SHA-256. cppcheck is GPL-3.0; Nightjar only runs it as a separate
+# Night Owl engine image for cppcheck (C/C++ static analysis), built from the pinned release
+# source tarball verified by SHA-256. cppcheck is GPL-3.0; Night Owl only runs it as a separate
 # process in this container, it never links it.
 #
-#   docker build -t nightjar-engines/cppcheck:2.22.0 engines/cppcheck
+#   docker build -t nightowl-engines/cppcheck:2.22.0 engines/cppcheck
 #
-# Bumped automatically by `nightjar engines watch` (VERSION and SOURCE_SHA256).
+# Bumped automatically by `nightowl engines watch` (VERSION and SOURCE_SHA256).
 FROM mirror.gcr.io/library/debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS build
 
 ARG VERSION=2.22.0

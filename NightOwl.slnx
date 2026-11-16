@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NightOwl.Ai/NightOwl.Ai.csproj" />
+    <Project Path="src/NightOwl.Cli/NightOwl.Cli.csproj" />
+    <Project Path="src/NightOwl.Core/NightOwl.Core.csproj" />
+    <Project Path="src/NightOwl.Engines/NightOwl.Engines.csproj" />
+    <Project Path="src/NightOwl.Web/NightOwl.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NightOwl.Tests/NightOwl.Tests.csproj" />
+  </Folder>
+</Solution>
