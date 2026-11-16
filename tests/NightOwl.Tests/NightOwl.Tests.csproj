@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\NightOwl.Engines\NightOwl.Engines.csproj" />
     <ProjectReference Include="..\..\src\NightOwl.Ai\NightOwl.Ai.csproj" />
     <ProjectReference Include="..\..\src\NightOwl.Web\NightOwl.Web.csproj" />
+    <ProjectReference Include="..\..\src\NightOwl.Cli\NightOwl.Cli.csproj" />
   </ItemGroup>
 
   <ItemGroup>

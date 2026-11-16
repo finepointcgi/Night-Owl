@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="16.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="NightOwl.Tests" />
     <EmbeddedResource Include="../../engines/engines.json" LogicalName="engines.json" />
   </ItemGroup>

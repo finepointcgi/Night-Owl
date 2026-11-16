@@ -9,8 +9,8 @@ inputs:
     description: Folder to scan
     default: "."
   fail-on:
-    description: critical, high, medium, low or none
-    default: high
+    description: critical, high, medium, low or none. Leave empty to use .nightowl/policy.yml (default high if there is none).
+    default: ""
   new-code-only:
     description: On pull requests, gate only on findings the PR introduces (true/false)
     default: "true"
@@ -76,7 +76,9 @@ runs:
         sarif="$RUNNER_TEMP/nightowl.sarif"
         set +e
         # shellcheck disable=SC2086
-        nightowl scan "$SCAN_PATH" --container --fail-on "$FAIL_ON" "${since[@]}" \
+        failflag=()
+        if [ -n "$FAIL_ON" ]; then failflag=(--fail-on "$FAIL_ON"); fi
+        nightowl scan "$SCAN_PATH" --container "${failflag[@]}" "${since[@]}" \
           --sarif-output "$sarif" --summary-output "$RUNNER_TEMP/nightowl.md" $EXTRA_ARGS
         code=$?
         set -e

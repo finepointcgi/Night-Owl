@@ -42,6 +42,7 @@ internal static class Cli
                 "fix" => await FixCommand.RunAsync(options),
                 "sbom" => await SbomCommand.RunAsync(options),
                 "hook" => HookCommand.Hook(options),
+                "policy" => PolicyCommand.Run(options),
                 "precommit" => await HookCommand.PreCommitAsync(options),
                 "self-update" => await UpdateCommands.SelfUpdateAsync(options),
                 "manifest" => Manifest(options),
@@ -74,7 +75,13 @@ internal static class Cli
             Console.Error.WriteLine("warning: using built-in engine versions (unpinned). Run `nightowl update` to install a signed manifest.");
         }
 
-        var engines = EngineFactory.Create(EngineFactory.Runner(manifest, options), options);
+        var policy = PolicySettings.Resolve(path, options);
+        if (policy.Source is { } policyPath)
+        {
+            Console.Error.WriteLine($"» policy: {Path.GetRelativePath(path, policyPath)}");
+        }
+
+        var engines = EngineFactory.Create(EngineFactory.Runner(manifest, options), options, path);
 
         var quiet = options.Value("format") is "json" or "sarif" && options.Value("output") is null;
         var progress = new Progress<string>(message => { if (!quiet) { Console.Error.WriteLine($"» {message}"); } });
@@ -113,7 +120,7 @@ internal static class Cli
         {
             "json" => report.ToJson(),
             "sarif" => SarifWriter.Write(report, Version),
-            "markdown" or "md" => MarkdownWriter.Write(report, newIds, options.Value("fail-on") ?? "high"),
+            "markdown" or "md" => MarkdownWriter.Write(report, newIds, PolicySettings.Resolve(report.Project, options)),
             "codeclimate" => CodeClimateWriter.Write(report),
             null or "table" => TableWriter.Write(report),
             var other => throw new ArgumentException($"unknown format '{other}' (use table, json, sarif, markdown or codeclimate)"),
@@ -137,7 +144,7 @@ internal static class Cli
 
         if (options.Value("summary-output") is { } summaryPath)
         {
-            await File.WriteAllTextAsync(summaryPath, MarkdownWriter.Write(report, newIds, options.Value("fail-on") ?? "high"));
+            await File.WriteAllTextAsync(summaryPath, MarkdownWriter.Write(report, newIds, PolicySettings.Resolve(report.Project, options)));
         }
 
         if (options.Value("codeclimate-output") is { } codeClimatePath)
@@ -150,14 +157,14 @@ internal static class Cli
             Console.Error.WriteLine($"warning: {failed.Engine} failed: {failed.Error}");
         }
 
-        var failOn = options.Value("fail-on") ?? "high";
-        if (failOn.Equals("none", StringComparison.OrdinalIgnoreCase))
+        var policy = PolicySettings.Resolve(report.Project, options);
+        if (policy.Gate is { FailOn: null, PerCategory: null })
         {
             return ExitPassed;
         }
 
         var gated = newIds is null ? report.Findings : report.Findings.Where(f => newIds.Contains(f.Id)).ToList();
-        if (options.Has("ignore-unimported"))
+        if (policy.IgnoreUnimported)
         {
             var skipped = gated.Count(f => f.Reachability == Reachability.NotImported);
             gated = gated.Where(f => f.Reachability != Reachability.NotImported).ToList();
@@ -165,10 +172,10 @@ internal static class Cli
         }
 
         var scope = newIds is null ? "" : " new";
-        var gate = new QualityGate(Enum.Parse<Severity>(failOn, ignoreCase: true)).Evaluate(gated);
+        var gate = policy.Gate.Evaluate(gated);
         Console.Error.WriteLine(gate.Passed
-            ? $"Quality gate passed (fail-on {failOn}{(newIds is null ? "" : ", new findings only")})."
-            : $"Quality gate FAILED: {gate.Blocking.Count}{scope} finding(s) at {failOn} or above.");
+            ? $"Quality gate passed (fail-on {policy.GateLabel}{(newIds is null ? "" : ", new findings only")})."
+            : $"Quality gate FAILED: {gate.Blocking.Count}{scope} finding(s) at or above the policy threshold ({policy.GateLabel}).");
         return gate.Passed ? ExitPassed : ExitGateFailed;
     }
 
@@ -303,6 +310,7 @@ internal static class Cli
               nightowl triage <id> false-positive|accepted-risk|confirmed|fixed|reset --reason "..."
                                   [--expires yyyy-mm-dd] [--project path] [--shared]   (also in the dashboard)
               nightowl sbom [path] [--format cyclonedx|spdx] [--vex] [--output file]
+              nightowl policy init|validate [path]   team policy in .nightowl/policy.yml
               nightowl hook install|uninstall      git pre-commit secret scan of staged changes
               nightowl monitor [--project path] [--webhook url] [--fail-on high]
                                   re-check saved SBOMs against new advisories (run daily)

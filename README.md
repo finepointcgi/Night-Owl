@@ -130,6 +130,30 @@ Opt out of automatic checks with `NIGHTOWL_AUTO_UPDATE=0` or `--no-update`.
   `overrides` for transitive dependencies), NuGet, pip `requirements*.txt` pins and Go modules.
   `--pr` commits to a branch and opens a pull request.
 
+## Policy as code
+
+Put the team's rules in `.nightowl/policy.yml` (commit it; CI and developers then agree). `nightowl policy init` writes a commented starter, `nightowl policy validate` checks it and prints what will apply.
+
+```yaml
+version: 1
+gate:
+  fail-on: high              # none | info | low | medium | high | critical
+  per-category:              # secret, code, vulnerability, license, infrastructure, dynamic, quality
+    secret: low
+    quality: none
+  ignore-unimported: false
+licenses:
+  deny: [AGPL-3.0-only]      # each list replaces the built-in default for that list
+  allow: [MIT, Apache-2.0]   # anything else is flagged for review
+quality:
+  min-coverage: 80
+  max-complexity: 15
+```
+
+Precedence is command-line flag > policy file > built-in default. An explicit `--fail-on` replaces the policy's gate entirely, including per-category rules. Unknown keys and bad values are errors, so a typo cannot silently turn a rule off. The GitHub Action and GitLab template no longer pass `--fail-on` unless you set it, so the policy applies.
+
+Not in the policy yet: required SBOM fields and a maximum age for accepted risks (use `--expires` when triaging for now).
+
 ## Prioritizing, exporting and catching problems early
 
 - **Reachability.** Dependency vulnerabilities are marked when no first-party file imports the package (npm, PyPI, Go, NuGet). It is shown as `[not imported directly]` and in the dashboard. It is a hint, not proof: the package may still arrive through another dependency, so `--ignore-unimported` only removes those findings from the *gate*, never from reports.

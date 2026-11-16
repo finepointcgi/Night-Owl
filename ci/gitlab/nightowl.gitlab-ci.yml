@@ -8,7 +8,7 @@
 # the job. Engines run as containers, so the job uses Docker-in-Docker.
 
 variables:
-  NIGHTOWL_FAIL_ON: high
+  NIGHTOWL_FAIL_ON: ""  # empty: use .nightowl/policy.yml (default high if there is none)
   NIGHTOWL_PATH: "."
   NIGHTOWL_ARGS: ""
   NIGHTOWL_REPO: OWNER/REPO
@@ -32,7 +32,9 @@ nightowl:
       if [ -n "$CI_MERGE_REQUEST_DIFF_BASE_SHA" ]; then
         since="--since $CI_MERGE_REQUEST_DIFF_BASE_SHA --history $CI_MERGE_REQUEST_DIFF_BASE_SHA..HEAD"
       fi
-      nightowl scan "$NIGHTOWL_PATH" --container --fail-on "$NIGHTOWL_FAIL_ON" $since \
+      failflag=""
+      if [ -n "$NIGHTOWL_FAIL_ON" ]; then failflag="--fail-on $NIGHTOWL_FAIL_ON"; fi
+      nightowl scan "$NIGHTOWL_PATH" --container $failflag $since \
         --sarif-output nightowl.sarif --summary-output nightowl.md --codeclimate-output gl-code-quality.json $NIGHTOWL_ARGS
   artifacts:
     when: always

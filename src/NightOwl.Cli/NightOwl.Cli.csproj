@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <InternalsVisibleTo Include="NightOwl.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\NightOwl.Core\NightOwl.Core.csproj" />
     <ProjectReference Include="..\NightOwl.Engines\NightOwl.Engines.csproj" />
     <ProjectReference Include="..\NightOwl.Ai\NightOwl.Ai.csproj" />

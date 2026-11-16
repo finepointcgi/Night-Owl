@@ -15,14 +15,12 @@ internal static class MarkdownWriter
 
     private const int MaxRows = 25;
 
-    public static string Write(ScanReport report, IReadOnlySet<string>? newIds, string failOn)
+    internal static string Write(ScanReport report, IReadOnlySet<string>? newIds, PolicySettings policy)
     {
         var active = report.Findings.Where(f => f.Triage is TriageState.New or TriageState.Confirmed).ToList();
-        var threshold = failOn.Equals("none", StringComparison.OrdinalIgnoreCase)
-            ? (Severity?)null
-            : Enum.Parse<Severity>(failOn, ignoreCase: true);
         var considered = newIds is null ? active : active.Where(f => newIds.Contains(f.Id)).ToList();
-        var blocking = threshold is { } t ? considered.Where(f => f.Severity >= t).ToList() : [];
+        var blocking = policy.Gate.Evaluate(policy.IgnoreUnimported ? considered.Where(f => f.Reachability != Reachability.NotImported) : considered).Blocking.ToList();
+        var failOn = policy.GateLabel;
 
         var md = new StringBuilder();
         md.AppendLine(Marker);

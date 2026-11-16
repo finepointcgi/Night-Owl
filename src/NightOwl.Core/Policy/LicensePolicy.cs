@@ -22,7 +22,25 @@ public sealed class LicensePolicy
         "MPL-2.0", "EPL-2.0", "CDDL-1.0",
     };
 
+    /// <summary>When set, any license outside this list (and not denied or under review) is flagged for review.</summary>
+    public IReadOnlySet<string>? Allowed { get; init; }
+
     public bool FlagUnknown { get; init; } = true;
+
+    /// <summary>The built-in defaults with the project's policy file applied on top.</summary>
+    public static LicensePolicy From(LicensesPolicy? policy)
+    {
+        var defaults = new LicensePolicy();
+        if (policy is null) { return defaults; }
+        static HashSet<string> Set(IEnumerable<string> items) => new(items, StringComparer.OrdinalIgnoreCase);
+        return new LicensePolicy
+        {
+            Denied = policy.Deny is null ? defaults.Denied : Set(policy.Deny),
+            Review = policy.Review is null ? defaults.Review : Set(policy.Review),
+            Allowed = policy.Allow is null ? null : Set(policy.Allow),
+            FlagUnknown = policy.FlagUnknown ?? defaults.FlagUnknown,
+        };
+    }
 
     /// <summary>
     /// Only flag "no license detected" where package metadata normally carries one. NuGet binaries,
@@ -59,6 +77,11 @@ public sealed class LicensePolicy
                 {
                     yield return Create(component, license, Severity.Medium, $"License needs review: {license}",
                         $"{license} has obligations that depend on how the package is used and distributed.");
+                }
+                else if (Allowed is not null && !Allowed.Contains(license))
+                {
+                    yield return Create(component, license, Severity.Medium, $"License not on the allow list: {license}",
+                        $"{license} is not in this project's allowed licenses (.nightowl/policy.yml).");
                 }
             }
         }

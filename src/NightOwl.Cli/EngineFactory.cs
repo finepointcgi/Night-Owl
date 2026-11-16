@@ -14,8 +14,9 @@ namespace NightOwl.Cli;
 /// <summary>The static-analysis engine set, shared by `scan` and `canary` so they can never drift apart.</summary>
 internal static class EngineFactory
 {
-    public static IEngine[] Create(ToolRunner runner, Options options)
+    public static IEngine[] Create(ToolRunner runner, Options options, string? projectRoot = null)
     {
+        var policy = projectRoot is null ? null : PolicySettings.Resolve(projectRoot, options);
         var ruleDirectories = options.Value("rules")?.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) ?? [];
         if (ruleDirectories.FirstOrDefault(d => !Directory.Exists(d)) is { } missing)
         {
@@ -26,14 +27,14 @@ internal static class EngineFactory
 
         IEngine[] engines =
         [
-            new SyftEngine(runner, new LicensePolicy()),
+            new SyftEngine(runner, LicensePolicy.From(policy?.File?.Licenses)),
             new OsvScannerEngine(runner),
             new GitleaksEngine(runner, HistoryScope.Parse(options.Value("history"))),
             new OpengrepEngine(runner, ruleDirectories),
             new CppcheckEngine(runner),
             new TrivyIacEngine(runner),
             new TrivyImageEngine(runner, images, options.Has("image-include-unfixed")),
-            new LizardEngine(runner, int.Parse(options.Value("max-complexity") ?? "15", System.Globalization.CultureInfo.InvariantCulture)),
+            new LizardEngine(runner, policy?.MaxComplexity ?? int.Parse(options.Value("max-complexity") ?? "15", System.Globalization.CultureInfo.InvariantCulture)),
             new CoverageEngine(),
         ];
 

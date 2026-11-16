@@ -11,10 +11,10 @@ internal static class QualityGates
     {
         var failed = false;
         var metrics = report.Metrics ?? new Dictionary<string, double>();
+        var policy = PolicySettings.Resolve(report.Project, options);
 
-        if (options.Value("min-coverage") is { } min)
+        if (policy.MinCoverage is { } threshold)
         {
-            var threshold = double.Parse(min, CultureInfo.InvariantCulture);
             if (!metrics.TryGetValue(MetricNames.LineCoverage, out var coverage))
             {
                 Console.Error.WriteLine("Coverage gate FAILED: no coverage report found (cobertura XML or lcov.info). Run your tests with coverage before scanning.");
@@ -31,12 +31,11 @@ internal static class QualityGates
             }
         }
 
-        if (options.Value("max-duplication") is { } max && metrics.TryGetValue(MetricNames.DuplicationRate, out var duplication))
+        if (policy.MaxDuplication is { } maxDuplication && metrics.TryGetValue(MetricNames.DuplicationRate, out var duplication))
         {
-            var threshold = double.Parse(max, CultureInfo.InvariantCulture);
-            if (duplication > threshold)
+            if (duplication > maxDuplication)
             {
-                Console.Error.WriteLine($"Duplication gate FAILED: {duplication:0.0}% duplicated code, limit {threshold:0.#}%.");
+                Console.Error.WriteLine($"Duplication gate FAILED: {duplication:0.0}% duplicated code, limit {maxDuplication:0.#}%.");
                 failed = true;
             }
         }
