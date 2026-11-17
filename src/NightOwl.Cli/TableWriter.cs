@@ -34,6 +34,7 @@ internal static class TableWriter
                 : "";
             var triaged = finding.Triage is TriageState.New or TriageState.Confirmed ? "" : $"  [{finding.Triage}]";
             if (finding.Reachability == Reachability.NotImported) { triaged += "  [not imported directly]"; }
+            if (finding.Context != FindingContext.Production) { triaged += $"  [{finding.Context.ToString().ToLowerInvariant()}]"; }
             text.AppendLine($"{Label(finding.Severity),-9} {finding.Category,-14} {finding.RuleId,-22} {finding.Title}{fix}{where}{triaged}");
             if (finding.Assessment is { } ai)
             {

@@ -130,6 +130,19 @@ Opt out of automatic checks with `NIGHTOWL_AUTO_UPDATE=0` or `--no-update`.
   `overrides` for transitive dependencies), NuGet, pip `requirements*.txt` pins and Go modules.
   `--pr` commits to a branch and opens a pull request.
 
+## Tests, examples and docs don't fail the build
+
+Every finding is labelled by where it lives: production code, `test`, `example`, `docs`, `generated` or `vendored` (judged from the path: `tests/`, `*_test.go`, `examples/`, `docs/`, `*.md`, `*.min.js`, `node_modules/`, and so on). Everything is still listed and counted; only production code fails the quality gate by default. The scan prints what was left out, and warns if any of it is a secret, because a real key committed in a test folder is still a leak.
+
+Opt back in with `--include-context test,example` (or `all`), or in the policy:
+
+```yaml
+gate:
+  include-contexts: [test]
+```
+
+On four real repositories (express, flask, gin, NodeGoat) this removed every high-severity code and secret finding that sat in tests, examples or docs, and kept all ten genuine ones in NodeGoat, which is vulnerable on purpose. The classifier only knows common names, so a project with unusual folder names will still see noise; `.nightowl/ignore` remains the escape hatch.
+
 ## Policy as code
 
 Put the team's rules in `.nightowl/policy.yml` (commit it; CI and developers then agree). `nightowl policy init` writes a commented starter, `nightowl policy validate` checks it and prints what will apply.

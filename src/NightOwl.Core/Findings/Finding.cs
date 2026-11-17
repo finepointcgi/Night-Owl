@@ -67,6 +67,9 @@ public sealed record Finding
 
     public TriageState Triage { get; init; } = TriageState.New;
 
+    /// <summary>Production code, tests, examples, docs, generated or vendored files (from the path). Only production gates by default.</summary>
+    public FindingContext Context { get; init; } = FindingContext.Production;
+
     /// <summary>For dependency vulnerabilities: whether first-party code imports the package directly.</summary>
     public Reachability Reachability { get; init; } = Reachability.Unknown;
 

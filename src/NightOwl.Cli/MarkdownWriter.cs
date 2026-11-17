@@ -28,6 +28,12 @@ internal static class MarkdownWriter
             ? "### ✅ Night Owl: quality gate passed"
             : $"### ❌ Night Owl: {blocking.Count} {(newIds is null ? "" : "new ")}finding(s) at {failOn} or above");
         md.AppendLine();
+        var nonProduction = active.Count(f => f.Context != FindingContext.Production);
+        if (nonProduction > 0)
+        {
+            md.AppendLine($"_{nonProduction} open finding(s) are in tests, examples, docs, generated or vendored files and do not fail the gate unless the policy includes them._");
+            md.AppendLine();
+        }
 
         var counts = active.GroupBy(f => f.Severity).OrderByDescending(g => g.Key).Select(g => $"{g.Count()} {g.Key.ToString().ToLowerInvariant()}");
         md.Append($"{active.Count} open finding(s)");

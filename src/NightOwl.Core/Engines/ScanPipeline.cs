@@ -60,7 +60,8 @@ public sealed class ScanPipeline(IEnumerable<IEngine> engines, EngineManifest ma
                 Seconds = stopwatch.Elapsed.TotalSeconds,
                 ManifestSequence = manifest.Sequence,
                 Engines = runs,
-                Findings = Dependencies.ReachabilityAnalyzer.Annotate(root, FindingMerger.Merge(findings)),
+                Findings = Dependencies.ReachabilityAnalyzer.Annotate(root, FindingMerger.Merge(findings))
+                    .Select(f => f with { Context = PathContext.Classify(f.Location?.Path) }).ToList(),
                 Metrics = context.Metrics.Count > 0 ? new Dictionary<string, double>(context.Metrics) : null,
             };
         }

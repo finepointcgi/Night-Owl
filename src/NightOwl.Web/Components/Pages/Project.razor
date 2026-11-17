@@ -150,6 +150,10 @@
                             {
                                 <div class="muted"><code>@path</code></div>
                             }
+                            @if (f.Context != FindingContext.Production)
+                            {
+                                <span class="ctx" title="Does not fail the gate by default">@f.Context.ToString().ToLowerInvariant()</span>
+                            }
                             <TriageButtons @key="f.Id" Project="@_report.Project" Finding="f" />
                         </td>
                         <td>@string.Join(" / ", f.FixedVersions)</td>

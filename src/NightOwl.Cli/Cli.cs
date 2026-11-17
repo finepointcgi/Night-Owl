@@ -173,6 +173,17 @@ internal static class Cli
 
         var scope = newIds is null ? "" : " new";
         var gate = policy.Gate.Evaluate(gated);
+        if (gate.Excluded.Count > 0)
+        {
+            var kinds = string.Join(", ", gate.Excluded.GroupBy(f => f.Context).OrderBy(g => g.Key).Select(g => $"{g.Count()} in {g.Key.ToString().ToLowerInvariant()} files"));
+            var secrets = gate.Excluded.Count(f => f.Category == FindingCategory.Secret);
+            Console.Error.WriteLine($"Not gating: {kinds} (still listed). Use --include-context or gate.include-contexts to gate them.");
+            if (secrets > 0)
+            {
+                Console.Error.WriteLine($"  note: {secrets} of these are secrets. Fake test keys are common, but a real one committed in tests is still leaked: review them.");
+            }
+        }
+
         Console.Error.WriteLine(gate.Passed
             ? $"Quality gate passed (fail-on {policy.GateLabel}{(newIds is null ? "" : ", new findings only")})."
             : $"Quality gate FAILED: {gate.Blocking.Count}{scope} finding(s) at or above the policy threshold ({policy.GateLabel}).");

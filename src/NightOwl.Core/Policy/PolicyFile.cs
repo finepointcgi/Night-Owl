@@ -66,6 +66,11 @@ public sealed class PolicyFile
             if (!TryParseThreshold(threshold, out _)) { yield return $"gate.per-category.{category}: '{threshold}' is not one of none, info, low, medium, high, critical"; }
         }
 
+        foreach (var context in Gate.IncludeContexts ?? [])
+        {
+            if (!TryParseContext(context, out _)) { yield return $"gate.include-contexts: '{context}' is not one of test, example, docs, generated, vendored, all"; }
+        }
+
         if (Quality.MinCoverage is < 0 or > 100) { yield return "quality.min-coverage must be between 0 and 100"; }
         if (Quality.MaxDuplication is < 0 or > 100) { yield return "quality.max-duplication must be between 0 and 100"; }
         if (Quality.MaxComplexity is < 1) { yield return "quality.max-complexity must be at least 1"; }
@@ -73,6 +78,25 @@ public sealed class PolicyFile
         {
             yield return $"licenses: {string.Join(", ", allow.Intersect(deny, StringComparer.OrdinalIgnoreCase))} appear in both allow and deny";
         }
+    }
+
+    /// <summary>Parses a context name; "all" maps to every non-production context.</summary>
+    public static bool TryParseContext(string text, out IReadOnlyList<FindingContext> contexts)
+    {
+        if (text.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            contexts = Enum.GetValues<FindingContext>().Where(c => c != FindingContext.Production).ToList();
+            return true;
+        }
+
+        if (Enum.TryParse<FindingContext>(text, ignoreCase: true, out var one) && one != FindingContext.Production)
+        {
+            contexts = [one];
+            return true;
+        }
+
+        contexts = [];
+        return false;
     }
 
     /// <summary>"none" means the category never fails the gate; otherwise the lowest severity that does.</summary>
@@ -98,6 +122,9 @@ public sealed class PolicyFile
             quality: none        # maintainability findings never fail it
           # Don't fail on dependency CVEs when first-party code never imports the package.
           ignore-unimported: false
+          # Findings in tests, examples, docs, generated and vendored files are listed but don't fail the build.
+          # Opt back in per kind: test | example | docs | generated | vendored | all
+          # include-contexts: [test]
 
         licenses:
           # Each list replaces the built-in default for that list.
@@ -118,6 +145,9 @@ public sealed class GatePolicy
     public string? FailOn { get; set; }
     public Dictionary<string, string> PerCategory { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool? IgnoreUnimported { get; set; }
+
+    /// <summary>Non-production contexts that still gate: test, example, docs, generated, vendored (or "all").</summary>
+    public List<string>? IncludeContexts { get; set; }
 }
 
 public sealed class LicensesPolicy
