@@ -1,0 +1,72 @@
+<h1>Getting started</h1>
+<p class="lead">From nothing to a first scan in about five minutes.</p>
+
+<h2 id="requirements">Before you start</h2>
+<ul>
+  <li><strong>Docker</strong> must be installed and running. Night Owl runs each engine from a pinned container image. (An engine already on your <code>PATH</code> is used instead, unless you pass <code>--container</code>.)</li>
+  <li><strong>macOS or Linux</strong> for the one-line installer. On Windows, download the <code>.exe</code> from the releases page. Windows and Linux binaries are built by CI but have not yet been run by hand, see <a href="troubleshooting.html#limits">known limits</a>.</li>
+  <li><strong>Git</strong> (optional) enables scanning of secrets in history and "new code only" gates.</li>
+</ul>
+
+<h2 id="install">1. Install</h2>
+<pre><code>curl -fsSL https://raw.githubusercontent.com/finepointcgi/Night-Owl/main/scripts/install.sh | sh</code></pre>
+<p>The installer picks the right binary for your OS and CPU, downloads it, and <strong>verifies its SHA-256 checksum</strong> against the release's <code>SHA256SUMS</code> before installing. It installs to <code>~/.local/bin</code> and tells you if that folder is not on your <code>PATH</code>.</p>
+<table>
+  <tr><th>Variable</th><th>Purpose</th></tr>
+  <tr><td><code>NIGHTOWL_VERSION</code></td><td>Install a specific version, for example <code>0.1.1</code>.</td></tr>
+  <tr><td><code>NIGHTOWL_INSTALL_DIR</code></td><td>Install somewhere else.</td></tr>
+  <tr><td><code>NIGHTOWL_REPO</code></td><td>Install from a fork (<code>owner/repo</code>).</td></tr>
+</table>
+<p>Prefer building from source? You need the .NET 10 SDK:</p>
+<pre><code>git clone https://github.com/finepointcgi/Night-Owl
+cd Night-Owl
+dotnet run --project src/NightOwl.Cli -- scan path/to/project</code></pre>
+
+<h2 id="first-scan">2. Your first scan</h2>
+<pre><code>nightowl scan path/to/project</code></pre>
+<p>The first run is slower because engine images are pulled once (and Night Owl's own images are built). Later scans reuse them.</p>
+<p>You will see:</p>
+<ol>
+  <li>A list of engines that ran and any warnings (an engine that fails is reported as a warning; the others still finish).</li>
+  <li>A table of findings: severity, category, location, and a short description.</li>
+  <li>Project totals (complexity, duplication, coverage, when available).</li>
+  <li>A gate result, and which findings were <em>not</em> gating (see below).</li>
+</ol>
+
+<h2 id="reading">3. Reading the results</h2>
+<table>
+  <tr><th>Field</th><th>Meaning</th></tr>
+  <tr><td>Severity</td><td><code>critical</code>, <code>high</code>, <code>medium</code>, <code>low</code>, <code>info</code>.</td></tr>
+  <tr><td>Category</td><td><code>vulnerability</code> (a dependency CVE), <code>code</code> (your source), <code>secret</code>, <code>license</code>, <code>infrastructure</code>, <code>dynamic</code> (a running app), <code>quality</code>.</td></tr>
+  <tr><td>Context</td><td>Where the file lives: production, test, example, docs, generated or vendored. Only production code fails the gate by default. <a href="policy.html#contexts">Why</a></td></tr>
+  <tr><td><code>[not imported directly]</code></td><td>A vulnerable package that no first-party file imports. A hint to lower priority, not proof of safety. <a href="sbom.html#reachability">Why</a></td></tr>
+  <tr><td>ID</td><td>A stable fingerprint. Use it with <code>nightowl triage</code>.</td></tr>
+</table>
+
+<h3 id="exit">Exit codes</h3>
+<table>
+  <tr><th>Code</th><th>Meaning</th></tr>
+  <tr><td><code>0</code></td><td>Scan finished and every gate passed.</td></tr>
+  <tr><td><code>1</code></td><td>A gate failed (for example a high-severity finding in production code).</td></tr>
+  <tr><td><code>2</code></td><td>Error: Night Owl itself could not complete.</td></tr>
+</table>
+
+<h2 id="outputs">4. Choosing an output</h2>
+<pre><code>nightowl scan . --format json --output report.json
+nightowl scan . --format sarif --output results.sarif
+nightowl scan . --format markdown --output summary.md</code></pre>
+<p>Formats: <code>table</code> (default), <code>json</code>, <code>sarif</code> (for GitHub code scanning and many IDEs), <code>markdown</code> (for PR comments), and <code>codeclimate</code> (GitLab merge request widget). You can write several at once with <code>--sarif-output</code>, <code>--summary-output</code> and <code>--codeclimate-output</code>.</p>
+
+<h2 id="dealing">5. Dealing with a finding</h2>
+<p>Suppose the scan reports a finding you've decided is not a real problem:</p>
+<pre><code>nightowl triage &lt;id&gt; false-positive --reason "Value is a constant, never user input"</code></pre>
+<p>Other states: <code>accepted-risk</code> (add <code>--expires 2027-03-01</code> so it comes back for review), <code>confirmed</code>, <code>fixed</code>, <code>reset</code>. Add <code>--shared</code> to store the decision in <code>.nightowl/triage.json</code> inside the repo so teammates and CI see it too.</p>
+
+<h2 id="dashboard">6. The dashboard (optional)</h2>
+<pre><code>dotnet run --project src/NightOwl.Web</code></pre>
+<p>A web UI over your saved scans: every project, findings by severity, a trend chart, triage buttons, and daily re-checks for new advisories while it runs. It listens on localhost; to expose it to a network you must set <code>NIGHTOWL_DASHBOARD_TOKEN</code> (it refuses to start otherwise).</p>
+
+<h2 id="where">Where things are stored</h2>
+<p>Reports, SBOMs, triage decisions, caches and the installed engine manifest live in <code>~/.nightowl</code> (change it with <code>NIGHTOWL_HOME</code>). Nothing is written into the repository you scan, except the files <em>you</em> create under <code>.nightowl/</code> (<code>policy.yml</code>, <code>ignore</code>, shared <code>triage.json</code>).</p>
+
+<div class="note"><p><strong>Next:</strong> make the gate fit your team in <a href="policy.html">Policy and gates</a>, or wire it into CI in <a href="ci.html">CI and editors</a>.</p></div>

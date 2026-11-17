@@ -1,0 +1,54 @@
+<h1>Engines and rules</h1>
+<p class="lead">Which open-source engine covers what, how Night Owl uses it, and what each one can and cannot see.</p>
+
+<h2 id="table">The engines</h2>
+<table>
+  <tr><th>Engine</th><th>Covers</th><th>License</th></tr>
+  <tr><td>Syft</td><td>SBOM (CycloneDX) and licenses</td><td>Apache-2.0</td></tr>
+  <tr><td>OSV-Scanner</td><td>Known vulnerabilities in dependencies</td><td>Apache-2.0</td></tr>
+  <tr><td>Opengrep</td><td>SAST with Night Owl's rule pack, including taint tracking (C#, JS/TS, Python, Java, Go, C/C++, plus Rust, Kotlin, Ruby, PHP packs)</td><td>LGPL-2.1</td></tr>
+  <tr><td>cppcheck</td><td>C/C++ defects: out-of-bounds, use-after-free, double free, uninitialized data, leaks</td><td>GPL-3.0 (run as a separate process only)</td></tr>
+  <tr><td>gitleaks</td><td>Secrets in current files and git history</td><td>MIT</td></tr>
+  <tr><td>Trivy</td><td>Infrastructure as code and container base images</td><td>Apache-2.0</td></tr>
+  <tr><td>lizard</td><td>Cyclomatic complexity and duplicated code (30+ languages)</td><td>MIT</td></tr>
+  <tr><td>ZAP (baseline)</td><td>DAST discovery and passive checks (<code>nightowl pentest</code>)</td><td>Apache-2.0</td></tr>
+  <tr><td>nuclei</td><td>DAST targeted template checks (<code>nightowl pentest</code>)</td><td>MIT</td></tr>
+</table>
+<p>Every version is declared once, in <code>engines/engines.json</code>. Engines without an official image (opengrep, cppcheck, lizard, nuclei) get a Dockerfile under <code>engines/</code> that verifies the pinned release by SHA-256 before building.</p>
+<div class="note"><p>Night Owl runs engines as <strong>separate processes or containers</strong> and never links them. That is why a GPL engine such as cppcheck does not affect Night Owl's Apache-2.0 license.</p></div>
+
+<h2 id="sast">Code rules (SAST)</h2>
+<p>Night Owl ships its own Apache-2.0 rule pack, embedded in the binary (<code>src/NightOwl.Engines/Rules</code>):</p>
+<ul>
+  <li><strong>Pattern rules</strong> find risky constructs: SQL and command injection, <code>eval</code>, insecure deserialization, disabled TLS validation, XSS sinks, weak hashes, and unsafe C string/format/command APIs.</li>
+  <li><strong>Taint rules</strong> follow data from where it enters (an HTTP request) to where it is dangerous (a SQL query, a shell, a file path, an HTML response). They cover Flask/Django, Express, ASP.NET Core, servlets, <code>net/http</code>, Spring, Rails and PHP. A sanitizer such as <code>int()</code> or <code>parseInt</code> ends the flow, so a hit is a real data path rather than a guess.</li>
+</ul>
+<p>Semgrep's registry rules are deliberately <strong>not</strong> used, because their license forbids bundling them in a competing tool. You can add your own Opengrep/Semgrep-syntax rules with <code>--rules path/to/rules</code>.</p>
+
+<h2 id="cpp">C and C++</h2>
+<p>cppcheck needs no build system or compile database. Findings are graded by how dangerous the defect is:</p>
+<table>
+  <tr><th>Defect</th><th>Severity</th></tr>
+  <tr><td>Memory corruption (out-of-bounds write, use-after-free, double free)</td><td>Critical</td></tr>
+  <tr><td>Uninitialized reads, null dereferences</td><td>High</td></tr>
+  <tr><td>Leaks</td><td>Medium</td></tr>
+</table>
+<p>Opengrep's C rules add <code>strcpy</code>/<code>sprintf</code>/<code>gets</code>, non-constant format strings, and <code>system()</code> with runtime strings.</p>
+
+<h2 id="containers">Container images</h2>
+<p>Night Owl finds the final-stage base image of every Dockerfile (resolving <code>ARG</code> defaults, skipping build stages and <code>scratch</code>) and scans it with Trivy, plus any image you pass with <code>--image</code>. Only vulnerabilities that have a fix are reported unless you pass <code>--image-include-unfixed</code>. Trivy's vulnerability database is cached in <code>~/.nightowl/cache</code>.</p>
+
+<h2 id="iac">Infrastructure as code</h2>
+<p>Trivy runs whenever the project has Terraform, a Dockerfile, a Helm chart or a compose file, or YAML/JSON that looks like Kubernetes, CloudFormation or ARM (detected by peeking at file contents). It uses the checks built into the pinned Trivy version, so results change only when the engine manifest moves Trivy forward, and the scan works offline.</p>
+
+<h2 id="secrets">Secrets</h2>
+<p>gitleaks' raw report contains the secrets, so Night Owl parses it and <strong>deletes it immediately</strong>. Findings keep only a hash of the value (for a stable ID) and the first 4 characters.</p>
+<p>In a git repository, the <strong>full history</strong> is scanned by default:</p>
+<ul>
+  <li>A secret in both current files and history becomes one finding that notes the commit that first added it.</li>
+  <li>A secret that was <em>deleted</em> but still lives in history gets its own "Secret in git history" finding. Anyone with a clone can still read it, so the fix is to <strong>rotate the key</strong>, not just delete the line.</li>
+  <li>AWS's published <code>...EXAMPLE</code> keys are ignored.</li>
+</ul>
+
+<h2 id="quality">Code quality</h2>
+<p>lizard reports functions over the complexity limit and duplicated blocks as <code>quality</code> findings. Project totals (average and highest complexity, duplication rate, line coverage) appear in the CLI, the PR summary and the dashboard.</p>

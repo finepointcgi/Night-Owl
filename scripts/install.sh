@@ -2,12 +2,12 @@
 # Installs the latest Night Owl release (or NIGHTOWL_VERSION) for this OS/CPU and verifies its
 # SHA-256 against the release's SHA256SUMS before installing.
 #
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/finepointcgi/Night-Owl/main/scripts/install.sh | sh
 #
 # Env: NIGHTOWL_REPO (owner/repo), NIGHTOWL_VERSION (e.g. 1.2.0), NIGHTOWL_INSTALL_DIR (default ~/.local/bin)
 set -eu
 
-repo="${NIGHTOWL_REPO:-OWNER/REPO}"
+repo="${NIGHTOWL_REPO:-finepointcgi/Night-Owl}"
 dir="${NIGHTOWL_INSTALL_DIR:-$HOME/.local/bin}"
 
 case "$(uname -s)" in

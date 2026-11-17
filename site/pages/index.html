@@ -1,0 +1,48 @@
+<h1>Night Owl</h1>
+<p class="lead">One open-source tool that scans your code, dependencies, secrets, infrastructure files and containers, then keeps itself up to date. It is built as an open alternative to Black Duck, Coverity, SonarQube and Fortify.</p>
+
+<h2 id="what">What it does, in plain words</h2>
+<p>Security scanning usually means running five different tools, reading five different reports, and keeping all five up to date. Night Owl does that for you:</p>
+<ol>
+  <li>It runs proven open-source scanners (called <em>engines</em>) in containers, at exact, signed versions.</li>
+  <li>It converts everything they report into one common format, and removes duplicates when two engines report the same problem.</li>
+  <li>It gives you one report, one pass/fail <em>quality gate</em>, and one dashboard.</li>
+  <li>It updates its own engines safely, and checks that an update still works before keeping it.</li>
+</ol>
+<p>Night Owl does not invent new scanners. Its value is in the glue: consistent results, stable IDs, a sane gate, and updates you can trust.</p>
+
+<h2 id="covers">What it checks</h2>
+<div class="cards">
+  <div class="card"><h3>Vulnerable dependencies</h3><p>Known CVEs in the libraries you use, plus licenses and a full SBOM.</p></div>
+  <div class="card"><h3>Your own code (SAST)</h3><p>SQL injection, command injection, XSS, unsafe deserialization and more, including data-flow (taint) tracking.</p></div>
+  <div class="card"><h3>Secrets</h3><p>Keys and tokens in current files and in git history. The secret value is never saved.</p></div>
+  <div class="card"><h3>C and C++ defects</h3><p>Out-of-bounds access, use-after-free, double free, leaks.</p></div>
+  <div class="card"><h3>Infrastructure as code</h3><p>Terraform, Kubernetes, Dockerfiles, Helm, CloudFormation and more.</p></div>
+  <div class="card"><h3>Container base images</h3><p>Known vulnerabilities in the images your Dockerfiles build on.</p></div>
+  <div class="card"><h3>Code quality</h3><p>Complexity, duplication and test coverage, each with an optional gate.</p></div>
+  <div class="card"><h3>Running apps (DAST)</h3><p>Optional, authorized active testing of a staging site, planned by an AI model.</p></div>
+</div>
+
+<h2 id="start">Try it in three steps</h2>
+<ol class="steps">
+  <li><strong>Install it.</strong> You need Docker running.
+<pre><code>curl -fsSL https://raw.githubusercontent.com/finepointcgi/Night-Owl/main/scripts/install.sh | sh</code></pre></li>
+  <li><strong>Scan a project.</strong>
+<pre><code>nightowl scan path/to/project</code></pre></li>
+  <li><strong>Read the result.</strong> You get a table of findings and a pass or fail. Exit code <code>0</code> means it passed.</li>
+</ol>
+<p>New here? <a href="getting-started.html">Getting started</a> walks through every step and shows what the output means.</p>
+
+<h2 id="pillars">Four ideas worth knowing first</h2>
+<table>
+  <tr><th>Idea</th><th>What it means for you</th></tr>
+  <tr><td><strong>Stable fingerprints</strong></td><td>Each finding has an ID that survives rescans and code moves. When you mark something a false positive, it stays marked. <a href="how-it-works.html#fingerprints">Details</a></td></tr>
+  <tr><td><strong>Only new problems block merges</strong></td><td>You can gate on findings in changed lines only, so old debt is visible but does not stop work. <a href="policy.html#new-code">Details</a></td></tr>
+  <tr><td><strong>Tests, examples and docs don't fail the build</strong></td><td>Findings are labelled by where they live, and only production code gates by default. <a href="policy.html#contexts">Details</a></td></tr>
+  <tr><td><strong>Signed, self-checking updates</strong></td><td>Engine updates are cryptographically signed, tested against a known-bad corpus, and rolled back if they break. <a href="staying-current.html">Details</a></td></tr>
+</table>
+
+<h2 id="honest">Honest limits</h2>
+<div class="warn">
+  <p>Night Owl orchestrates open-source engines. It will not match Coverity's deep whole-program C/C++ analysis, or Black Duck's binary and snippet matching. Expect it to find the common, serious problems, in one place, with fewer false alarms than running the raw tools. See <a href="troubleshooting.html#limits">known limits</a> for the full list.</p>
+</div>

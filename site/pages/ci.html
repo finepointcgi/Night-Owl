@@ -1,0 +1,61 @@
+<h1>CI and editors</h1>
+<p class="lead">Catch problems at the three places that matter: while typing, before the commit, and on every pull request.</p>
+
+<h2 id="github">GitHub Actions</h2>
+<pre><code>permissions: { contents: read, security-events: write, pull-requests: write }
+steps:
+  - uses: actions/checkout@v7
+    with: { fetch-depth: 0 }
+  - uses: finepointcgi/Night-Owl@v0.1.1
+    with: { fail-on: high }</code></pre>
+<p>On pull requests the action:</p>
+<ul>
+  <li>fails <strong>only on new findings</strong>, not old debt,</li>
+  <li>updates a <strong>single summary comment</strong> (it doesn't add a new one on every push),</li>
+  <li>writes the job summary,</li>
+  <li>uploads SARIF so findings appear <strong>inline in the diff</strong> (code scanning), and</li>
+  <li>scans only the PR's commits for secrets, which is fast.</li>
+</ul>
+<div class="note"><p><code>fetch-depth: 0</code> matters: "new findings only" and history scanning need the git history. If you have a <code>.nightowl/policy.yml</code>, leave <code>fail-on</code> out and the policy applies.</p></div>
+
+<h2 id="gitlab">GitLab CI</h2>
+<p>Include the template from your <code>.gitlab-ci.yml</code>:</p>
+<pre><code>include:
+  - remote: https://raw.githubusercontent.com/finepointcgi/Night-Owl/main/ci/gitlab/nightowl.gitlab-ci.yml
+
+variables:
+  NIGHTOWL_FAIL_ON: ""      # empty = use .nightowl/policy.yml (default high if there is none)
+  NIGHTOWL_PATH: "."
+  NIGHTOWL_ARGS: ""         # extra scan options</code></pre>
+<p>What it does:</p>
+<ul>
+  <li>Runs with Docker-in-Docker, because engines run as containers.</li>
+  <li>On merge requests, scans only changes since the MR's base commit (<code>--since</code>), so only new findings fail the job.</li>
+  <li>Findings appear in the <strong>merge request widget and diff</strong> through the code quality report (<code>gl-code-quality.json</code>).</li>
+  <li>Saves <code>nightowl.md</code> (a readable summary) and <code>nightowl.sarif</code> as job artifacts.</li>
+  <li>Runs on merge requests and on the default branch.</li>
+</ul>
+
+<h2 id="hook">Before the commit</h2>
+<pre><code>nightowl hook install</code></pre>
+<p>Adds a git pre-commit hook that scans the <em>staged</em> content (what you are about to commit, not your whole working tree) for secrets, and blocks the commit if it finds one. Bypass with <code>git commit --no-verify</code> if you must.</p>
+<p>Using the <a href="https://pre-commit.com">pre-commit</a> framework instead? The repository ships <code>.pre-commit-hooks.yaml</code>; add this repository to your <code>.pre-commit-config.yaml</code> and enable the <code>nightowl-secrets</code> hook.</p>
+
+<h2 id="vscode">VS Code</h2>
+<p><code>editors/vscode</code> is a small extension that shows scan results as editor diagnostics (squiggles and the Problems panel).</p>
+<div class="warn"><p>It has had a syntax check but not a full manual test pass yet. Treat it as experimental. Planned: scan on save of just the changed file, quick-fix to triage from the editor, and a status-bar gate.</p></div>
+
+<h2 id="dashboard-token">Protecting the dashboard</h2>
+<p>By default the dashboard listens on localhost only. If you configure it to listen on an address reachable from the network, it <strong>refuses to start</strong> unless <code>NIGHTOWL_DASHBOARD_TOKEN</code> is set to a long random value. People then supply the token as an <code>Authorization: Bearer</code> header or a cookie (a <code>?token=</code> link also works on a first visit).</p>
+<pre><code>export NIGHTOWL_DASHBOARD_TOKEN="$(openssl rand -hex 32)"
+dotnet run --project src/NightOwl.Web</code></pre>
+
+<h2 id="recipes">Recipes</h2>
+<table>
+  <tr><th>I want to...</th><th>Do this</th></tr>
+  <tr><td>Block merges on any new high-severity issue</td><td>Policy <code>gate.fail-on: high</code>, run the PR action.</td></tr>
+  <tr><td>Never allow a secret, even low severity</td><td><code>per-category: { secret: low }</code> in the policy.</td></tr>
+  <tr><td>Adopt on a legacy repo without a flood</td><td><code>--baseline last</code> or <code>--since origin/main</code>.</td></tr>
+  <tr><td>Fail on a forbidden license</td><td><code>licenses.deny</code> in the policy.</td></tr>
+  <tr><td>Keep a record for auditors</td><td>Save <code>--format json</code> and <code>nightowl sbom --vex</code> as build artifacts.</td></tr>
+</table>

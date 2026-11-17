@@ -1,0 +1,23 @@
+# Publishes the documentation site (site/) with GitLab Pages.
+#
+# The job is named "pages" because that is the name GitLab Pages looks for; it must
+# publish a folder called "public". No dependencies beyond Python 3: site/build.py wraps
+# the HTML fragments in site/pages in one layout and checks every internal link.
+#
+# To publish: mirror or push this repository to GitLab. The site appears at
+# https://<namespace>.gitlab.io/<project>/ (Deploy > Pages shows the exact address).
+#
+# This file is separate from ci/gitlab/nightowl.gitlab-ci.yml, which is the template other
+# projects include to *run* Night Owl.
+
+pages:
+  stage: deploy
+  image: python:3.13-alpine
+  script:
+    - python3 site/build.py --check
+  pages: true
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

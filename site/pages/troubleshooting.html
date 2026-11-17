@@ -1,0 +1,67 @@
+<h1>FAQ and troubleshooting</h1>
+<p class="lead">Quick answers, then the honest list of what Night Owl does not do yet.</p>
+
+<h2 id="faq">Frequently asked</h2>
+
+<h3>Do I need Docker?</h3>
+<p>Yes, unless you've installed the engines yourself and put them on your <code>PATH</code>. By default each engine runs from a pinned container image so everybody gets the same results.</p>
+
+<h3>Does my code leave my machine?</h3>
+<p>No, scans run locally. Only dependency <em>names and versions</em> go to OSV.dev. AI features are opt-in; <code>--ai ollama</code> is fully local.</p>
+
+<h3>Why did the scan pass when I can see findings?</h3>
+<p>Most likely they are in tests, examples or docs, which don't fail the gate by default. Look for the <code>Not gating:</code> line. Use <code>--include-context all</code> to gate on everything. See <a href="policy.html#contexts">Policy and gates</a>.</p>
+
+<h3>Why does a finding keep coming back after I marked it a false positive?</h3>
+<p>Triage is keyed to the fingerprint, which includes the rule, file and normalized snippet. If you rewrote the flagged code, or <em>moved it to another file</em>, it is a different finding. Mark it again. Use <code>--shared</code> so the decision is saved in the repo.</p>
+
+<h3>The same problem appears twice.</h3>
+<p>Night Owl merges identical findings across engines, but a pattern rule and a taint rule that fire on the same line can still both report it (for example <code>eval</code> in NodeGoat). It's a known issue, on the backlog.</p>
+
+<h3>A secret was reported in git history, but I deleted it.</h3>
+<p>Deleting the line doesn't remove it from history; anyone with a clone can read it. <strong>Rotate the credential.</strong> That is the fix.</p>
+
+<h3>Can I turn off automatic updates?</h3>
+<p><code>NIGHTOWL_AUTO_UPDATE=0</code> or <code>--no-update</code>.</p>
+
+<h2 id="problems">Troubleshooting</h2>
+<table>
+  <tr><th>Symptom</th><th>Likely cause and fix</th></tr>
+  <tr><td>"Cannot connect to the Docker daemon"</td><td>Start Docker Desktop (or the Docker service). Night Owl needs it for engines.</td></tr>
+  <tr><td>Image pull fails with HTTP 429</td><td>Docker Hub rate limit. Night Owl retries through <code>mirror.gcr.io</code> automatically; just run again.</td></tr>
+  <tr><td>First scan is very slow</td><td>Images are being pulled and built once. Later runs are fast.</td></tr>
+  <tr><td>"nightowl: command not found" after install</td><td><code>~/.local/bin</code> isn't on your <code>PATH</code>. Add it, or set <code>NIGHTOWL_INSTALL_DIR</code>.</td></tr>
+  <tr><td>Policy error mentioning an unknown key</td><td>Typos are errors on purpose. Run <code>nightowl policy validate</code> to see which line.</td></tr>
+  <tr><td>"Signature check failed. The manifest was not installed."</td><td>The downloaded engine manifest failed a signature, digest, schema or rollback check. Night Owl keeps your current engines. Don't bypass it; report it.</td></tr>
+  <tr><td>Canary failed after an update</td><td>Night Owl restored the previous manifest by itself and will skip the bad one. Nothing to do. Run <code>nightowl canary</code> to confirm.</td></tr>
+  <tr><td>Scan finds nothing in an obviously vulnerable project</td><td>Check the warnings at the top: an engine may have failed and been skipped. Re-run with <code>--engines</code> to isolate it.</td></tr>
+  <tr><td>Exit code 2</td><td>An error in Night Owl itself, not a gate failure. Read the message printed above the summary.</td></tr>
+</table>
+
+<h2 id="limits">Known limits</h2>
+<p>These are real, and worth knowing before you rely on it.</p>
+<ul>
+  <li><strong>Not a Coverity replacement for deep C/C++.</strong> cppcheck finds common serious defects; whole-program interprocedural analysis is not matched by open source.</li>
+  <li><strong>No binary or snippet matching.</strong> That is Black Duck's main advantage and is not chased here.</li>
+  <li><strong>Reachability looks at imports only</strong>, not whether the vulnerable function is called.</li>
+  <li><strong>Windows and Linux binaries are built by CI but haven't been run by hand yet.</strong> macOS is verified end to end (install, update, self-update).</li>
+  <li><strong>Single signing key, no rotation.</strong> See <a href="staying-current.html#signing-key">the signing key</a>.</li>
+  <li><strong>Some noise remains:</strong> framework code that implements a sink itself (such as express's own <code>res.send</code>) is flagged; Flask's lockfile reports CVEs in dev-only tools.</li>
+  <li><strong>The VS Code extension</strong> has only had a syntax check.</li>
+  <li><strong><code>fix</code></strong> doesn't cover Maven, Cargo or Composer yet.</li>
+</ul>
+
+<h2 id="roadmap">Roadmap</h2>
+<p>The full prioritized list is <a href="https://github.com/finepointcgi/Night-Owl/blob/main/docs/BACKLOG.md">docs/BACKLOG.md</a>. The headline items:</p>
+<ol>
+  <li><strong>Less noise:</strong> merge duplicate findings, add a confidence field, tune rules against real repositories.</li>
+  <li><strong>Fingerprints that survive renames</strong>, with a regression corpus so changes never silently re-open triaged findings.</li>
+  <li><strong>Wider auto-fix:</strong> Maven, Cargo, Composer; warn on major-version jumps.</li>
+  <li><strong>Depth:</strong> a second C/C++ engine, cognitive complexity, symbol-level reachability for Go.</li>
+  <li><strong>Experience:</strong> a tested VS Code extension, bulk triage, an organization-wide dashboard.</li>
+  <li><strong>Trust:</strong> multi-key signing, provenance (SLSA) for releases and SBOMs.</li>
+  <li><strong>Distribution:</strong> Homebrew and Scoop packages.</li>
+</ol>
+
+<h2 id="contribute">Contributing</h2>
+<p>Adding an engine is one class implementing <code>IEngine</code> plus one entry in <code>engines/engines.json</code>. Before opening a PR run <code>dotnet test</code>; CI additionally runs the canary check against every engine. Questions and bugs: <a href="https://github.com/finepointcgi/Night-Owl/issues">open an issue</a>.</p>

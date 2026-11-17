@@ -1,0 +1,41 @@
+<h1>SBOM, monitoring and fixes</h1>
+<p class="lead">Know what you ship, hear when it becomes vulnerable, and fix it with one command.</p>
+
+<h2 id="sbom">SBOM and VEX</h2>
+<p>A <strong>software bill of materials</strong> lists every component in your software. A <strong>VEX</strong> document says which known vulnerabilities actually affect you. Customers and regulators increasingly ask for both.</p>
+<pre><code>nightowl sbom . --format cyclonedx --output sbom.cdx.json
+nightowl sbom . --format spdx --output sbom.spdx.json
+nightowl sbom . --vex --output sbom.vex.json</code></pre>
+<p>With <code>--vex</code>, the CycloneDX file gets a <code>vulnerabilities</code> section whose states come straight from your triage decisions:</p>
+<table>
+  <tr><th>Your triage decision</th><th>VEX state</th></tr>
+  <tr><td>false positive</td><td><code>false_positive</code></td></tr>
+  <tr><td>accepted risk</td><td><code>exploitable</code> / <code>will_not_fix</code></td></tr>
+  <tr><td>fixed</td><td><code>resolved</code></td></tr>
+  <tr><td>anything not yet decided</td><td><code>in_triage</code></td></tr>
+</table>
+
+<h2 id="reachability">Reachability: is the vulnerable package even used?</h2>
+<p>Many dependency CVEs sit in packages your code never imports. Night Owl checks whether any first-party file imports the package (npm, PyPI, Go, NuGet). If none does, the finding is marked <code>[not imported directly]</code> and shown that way in the dashboard.</p>
+<div class="warn"><p><strong>It's a hint, not proof.</strong> The package may still arrive through another dependency, and "imported" does not mean "the vulnerable function is called". So <code>--ignore-unimported</code> only removes those findings from the <em>gate</em>, never from reports. Symbol-level reachability is on the backlog.</p></div>
+
+<h2 id="monitor">Continuous monitoring</h2>
+<p>New CVEs are published every day, long after you last scanned. Every scan saves the SBOM, and:</p>
+<pre><code>nightowl monitor --webhook https://hooks.slack.com/... --fail-on high</code></pre>
+<p>asks OSV.dev about every saved dependency. When a <em>new</em> advisory affects something you already ship, it's added to the report and posted to your webhook (Slack, Teams, Discord, Mattermost). The running dashboard does the same check daily. Only package names and versions are sent.</p>
+
+<h2 id="fix">Automatic fixes</h2>
+<pre><code>nightowl fix . --dry-run    # show the plan
+nightowl fix . --pr         # commit to a branch and open a pull request</code></pre>
+<p>For each vulnerable dependency, Night Owl picks the <strong>smallest version that fixes all of its advisories</strong>. It first checks that version against OSV, and moves higher if the target has advisories of its own.</p>
+<table>
+  <tr><th>Ecosystem</th><th>How it updates</th></tr>
+  <tr><td>npm</td><td>Lockfile-only, install scripts disabled; uses <code>overrides</code> for transitive dependencies</td></tr>
+  <tr><td>NuGet</td><td>Package references</td></tr>
+  <tr><td>pip</td><td><code>requirements*.txt</code> pins</td></tr>
+  <tr><td>Go</td><td>Go modules</td></tr>
+</table>
+<p>Maven, Cargo and Composer are not supported yet.</p>
+
+<h2 id="history">Trends over time</h2>
+<p>Every scan appends a point to a per-project history (<code>~/.nightowl/reports/history/*.jsonl</code>). It is plain text on purpose, so there is no native database to ship. The dashboard shows open findings over the last scans, and what is new or resolved since the previous one.</p>

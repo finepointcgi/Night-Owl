@@ -1,0 +1,87 @@
+<h1>Policy and gates</h1>
+<p class="lead">A <strong>quality gate</strong> is the rule that turns a list of findings into pass or fail. This page explains how to set it, and how to keep noise from blocking your team.</p>
+
+<h2 id="policy-file">Policy as code</h2>
+<p>Put your team's rules in <code>.nightowl/policy.yml</code> and commit it. Developers and CI then always agree, because they read the same file.</p>
+<pre><code>nightowl policy init        # writes a commented starter file
+nightowl policy validate    # checks it, shows what will apply</code></pre>
+<pre><code>version: 1
+gate:
+  fail-on: high              # none | info | low | medium | high | critical
+  per-category:              # secret, code, vulnerability, license, infrastructure, dynamic, quality
+    secret: low              # any secret fails, even a low-severity one
+    quality: none            # quality findings never fail the build
+  ignore-unimported: false
+  include-contexts: []       # test, example, docs, generated, vendored
+licenses:
+  deny: [AGPL-3.0-only]      # a denied license is a finding
+  allow: [MIT, Apache-2.0]   # anything else is flagged for review
+quality:
+  min-coverage: 80
+  max-complexity: 15
+  max-duplication: 5</code></pre>
+
+<h3>How the pieces combine</h3>
+<ul>
+  <li><strong>Precedence:</strong> command-line flag, then policy file, then built-in default.</li>
+  <li>An explicit <code>--fail-on</code> <em>replaces</em> the policy's gate, including its per-category rules. That is deliberate: a flag is a one-off override.</li>
+  <li>Each license list (<code>deny</code>, <code>review</code>, <code>allow</code>) <em>replaces</em> the built-in default for that list; it does not add to it.</li>
+  <li><strong>Typos are errors.</strong> Unknown keys and bad values stop the run, so a misspelled rule can never silently switch a check off.</li>
+</ul>
+
+<div class="note"><p><strong>Not in the policy yet:</strong> required SBOM fields and a maximum age for accepted risks. Use <code>--expires</code> when triaging for now.</p></div>
+
+<h2 id="contexts">Tests, examples and docs don't fail the build</h2>
+<p>A hard-coded password in a unit test is not the same risk as one in your login code. Night Owl labels every finding by where it lives, judged from the path:</p>
+<table>
+  <tr><th>Context</th><th>Examples of what counts</th></tr>
+  <tr><td><code>production</code></td><td>Everything else.</td></tr>
+  <tr><td><code>test</code></td><td><code>test/</code>, <code>tests/</code>, <code>__tests__/</code>, <code>fixtures/</code>, <code>*_test.go</code>, <code>*.test.js</code>, <code>*.spec.ts</code>, <code>test_*.py</code>...</td></tr>
+  <tr><td><code>example</code></td><td><code>examples/</code>, <code>samples/</code>, <code>demo/</code>...</td></tr>
+  <tr><td><code>docs</code></td><td><code>docs/</code>, <code>*.md</code>, <code>*.rst</code>...</td></tr>
+  <tr><td><code>generated</code></td><td><code>dist/</code>, <code>generated/</code>, <code>*.min.js</code>, <code>*.pb.go</code>, <code>*.g.cs</code>...</td></tr>
+  <tr><td><code>vendored</code></td><td><code>node_modules/</code>, <code>vendor/</code>, <code>third_party/</code>, <code>.venv/</code>...</td></tr>
+</table>
+<p>If a path matches more than one, the order of precedence is vendored, generated, test, example, then docs.</p>
+<p><strong>Everything is still listed and counted.</strong> Only production code fails the gate by default. The scan prints what was left out (<code>Not gating: ...</code>), and <strong>warns if any of it is a secret</strong>, because a real key committed in a test folder is still a leak.</p>
+<p>To opt back in:</p>
+<pre><code>nightowl scan . --include-context test,example     # or: all</code></pre>
+<pre><code>gate:
+  include-contexts: [test]</code></pre>
+<p>On four real repositories (express, flask, gin, NodeGoat) this removed every high-severity code and secret finding that sat in tests, examples or docs, and kept all ten genuine ones in NodeGoat, which is vulnerable on purpose. The classifier only knows common folder names; for unusual layouts use <code>.nightowl/ignore</code>.</p>
+
+<h2 id="new-code">Gate on new code only</h2>
+<p>Turning scanning on for an old project can produce hundreds of findings. You don't have to fix them before you can use the gate.</p>
+<table>
+  <tr><th>Flag</th><th>Fails only on...</th></tr>
+  <tr><td><code>--since origin/main</code></td><td>Findings on lines the change touched, or on dependency versions it introduced.</td></tr>
+  <tr><td><code>--baseline last</code></td><td>Findings not seen in your previous scan. You can pass a saved report instead of <code>last</code>.</td></tr>
+</table>
+<p>Existing problems stay visible in reports; they just don't block merges.</p>
+
+<h2 id="triage">Triage that sticks</h2>
+<p>Decisions are keyed by the finding's <a href="how-it-works.html#fingerprints">fingerprint</a>, so they survive rescans and code moves.</p>
+<table>
+  <tr><th>State</th><th>Use it when</th></tr>
+  <tr><td><code>false-positive</code></td><td>The tool is wrong.</td></tr>
+  <tr><td><code>accepted-risk</code></td><td>It's real, and you've chosen to live with it. Always give <code>--expires</code>.</td></tr>
+  <tr><td><code>confirmed</code></td><td>It's real and needs fixing.</td></tr>
+  <tr><td><code>fixed</code></td><td>You've fixed it (it will reopen if it returns).</td></tr>
+  <tr><td><code>reset</code></td><td>Undo a previous decision.</td></tr>
+</table>
+<p>With <code>--shared</code> decisions go into <code>.nightowl/triage.json</code> in the repo, where they get code review like any other change.</p>
+
+<h2 id="ignore">Ignored paths</h2>
+<p><code>.nightowl/ignore</code> uses gitignore-style patterns. Use it for fixtures, vendored code and deliberately vulnerable samples:</p>
+<pre><code># .nightowl/ignore
+tests/fixtures/
+legacy/**/generated/
+*.min.js</code></pre>
+
+<h2 id="quality">Quality gates</h2>
+<p>These come from the lizard engine and your existing coverage reports (Cobertura XML or <code>lcov.info</code>):</p>
+<ul>
+  <li><code>--min-coverage 80</code>: fail below 80% line coverage.</li>
+  <li><code>--max-duplication 5</code>: fail above 5% duplicated code.</li>
+  <li><code>--max-complexity 15</code>: functions above this are reported as <code>quality</code> findings (Low/Medium, so they never trip the default security gate).</li>
+</ul>

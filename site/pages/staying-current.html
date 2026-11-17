@@ -1,0 +1,81 @@
+<h1>Staying current</h1>
+<p class="lead">Scanners are only as good as their latest rules and databases. Night Owl updates its engines automatically, and a bad update can't silently break your scans.</p>
+
+<h2 id="overview">The big picture</h2>
+<div class="diagram">
+<svg viewBox="0 0 760 150" role="img" aria-label="Update flow: upstream releases, weekly watch PR, release build and sign, your machine verifies, canary, keep or rollback">
+  <defs><marker id="b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#888"/></marker></defs>
+  <rect class="box2" x="6" y="45" width="110" height="56" rx="8"/><text x="61" y="70" text-anchor="middle">Upstream</text><text x="61" y="88" text-anchor="middle">release (14d+ old)</text>
+  <rect class="box2" x="146" y="45" width="110" height="56" rx="8"/><text x="201" y="70" text-anchor="middle">Weekly watch</text><text x="201" y="88" text-anchor="middle">opens a PR</text>
+  <rect class="box2" x="286" y="45" width="110" height="56" rx="8"/><text x="341" y="70" text-anchor="middle">Build, canary,</text><text x="341" y="88" text-anchor="middle">sign manifest</text>
+  <rect class="box" x="426" y="45" width="110" height="56" rx="8"/><text x="481" y="70" text-anchor="middle">Your machine</text><text x="481" y="88" text-anchor="middle">verifies signature</text>
+  <rect class="box" x="566" y="45" width="90" height="56" rx="8"/><text x="611" y="70" text-anchor="middle">Canary</text><text x="611" y="88" text-anchor="middle">scan</text>
+  <rect class="box" x="676" y="10" width="80" height="34" rx="8"/><text x="716" y="32" text-anchor="middle">Keep</text>
+  <rect class="box2" x="676" y="100" width="80" height="34" rx="8"/><text x="716" y="122" text-anchor="middle">Roll back</text>
+  <path class="arrow" marker-end="url(#b)" d="M116,73 L144,73"/><path class="arrow" marker-end="url(#b)" d="M256,73 L284,73"/>
+  <path class="arrow" marker-end="url(#b)" d="M396,73 L424,73"/><path class="arrow" marker-end="url(#b)" d="M536,73 L564,73"/>
+  <path class="arrow" marker-end="url(#b)" d="M656,60 L674,34"/><path class="arrow" marker-end="url(#b)" d="M656,86 L674,112"/>
+</svg>
+</div>
+
+<h2 id="watch">1. The weekly upstream watch</h2>
+<p>A scheduled workflow (<code>engine-watch.yml</code>) looks for new releases of every engine and opens a pull request:</p>
+<ul>
+  <li><strong>14-day maturity window.</strong> It picks the newest release that is <em>at least 14 days old</em>. That gives the community time to spot a broken or compromised release before it reaches you.</li>
+  <li>It also rewrites Dockerfile pins (release hashes), rebuilds the engines, and runs the canary check.</li>
+  <li><strong>Base images too.</strong> The <code>FROM</code> lines of Night Owl's own engine images are updated in the same PR. Versioned tags move to the newest patch of the same minor version and variant (<code>alpine:3.24.2</code> to <code>3.24.4</code>), so security fixes land without surprise major upgrades. Every tag is pinned by digest, so a rebuilt tag such as <code>bookworm-slim</code> only changes through a reviewed PR. Base images use a shorter 2-day window because official images are rebuilt often for security fixes.</li>
+</ul>
+<pre><code>nightowl engines watch --only base [--write]     # run the same check yourself</code></pre>
+
+<h3>No Docker Hub pull limits</h3>
+<p>Base images are pulled through <code>mirror.gcr.io</code>, Google's Docker Hub cache. If a pull from Docker Hub is rate-limited (HTTP 429), Night Owl retries through the mirror. Because tags are pinned by digest the content is identical. No credentials are sent to either.</p>
+
+<h2 id="manifest">2. The signed manifest</h2>
+<p>After a merge, the <code>engines-release</code> workflow:</p>
+<ol>
+  <li>builds the self-built engine images for amd64 and arm64,</li>
+  <li>resolves every image to an immutable digest,</li>
+  <li>runs the canary check against exactly those digests,</li>
+  <li>signs the manifest (ECDSA P-256, compatible with <code>cosign sign-blob --key</code>), and</li>
+  <li>publishes it to the <code>engines-stable</code> release.</li>
+</ol>
+
+<h2 id="client">3. Your machine updates itself</h2>
+<p><code>nightowl scan</code> checks for a newer manifest once a day. The updater <strong>rejects</strong>:</p>
+<ul>
+  <li>unsigned or wrongly signed manifests,</li>
+  <li>engines without image digests,</li>
+  <li>unknown schema versions, and</li>
+  <li>anything older than what you have (<strong>rollback protection</strong>).</li>
+</ul>
+
+<h2 id="canary">4. Canary check, then rollback</h2>
+<p>An update that installs is not necessarily an update that works. After installing, Night Owl scans a built-in <em>vulnerable corpus</em>: small files with known problems that every engine must still find. If any engine misses something, the previous manifest is restored and the bad one is skipped from then on.</p>
+<pre><code>nightowl canary
+# Canary passed: all engines in manifest 202611170304 still find the known issues.</code></pre>
+<p>The same canary runs in CI on every pull request, so a broken rule or engine regression is caught before it ships.</p>
+
+<h2 id="binary">5. Updating Night Owl itself</h2>
+<p>The signed manifest also names the latest Night Owl release, with a SHA-256 for each platform.</p>
+<pre><code>nightowl self-update</code></pre>
+<p>installs the new binary only if its hash matches. Opt out of all automatic checks with <code>NIGHTOWL_AUTO_UPDATE=0</code> or <code>--no-update</code>.</p>
+
+<h2 id="signing-key">The signing key</h2>
+<p>Installs trust exactly one public key (<code>keys/nightowl-signing.pub</code>), compiled into every release binary. The private half signs manifests in CI.</p>
+<table>
+  <tr><th>Copy</th><th>Purpose</th></tr>
+  <tr><td>GitHub Actions secret <code>NIGHTOWL_SIGNING_KEY</code></td><td>Used by <code>engines-release</code>. GitHub never shows it again once set.</td></tr>
+  <tr><td>An offline copy (password manager, encrypted drive)</td><td>Recovery. <strong>Keep one outside GitHub.</strong></td></tr>
+</table>
+<div class="warn">
+  <p><strong>No key rotation yet.</strong> If the key is lost or leaked, a new key means a new release and a one-time reinstall for existing users, because installs trust a single embedded key. A leaked key is serious: whoever holds it can publish a manifest that pins engine images of their choosing. Trusting a list of keys (current plus next) is on the backlog.</p>
+</div>
+
+<h2 id="fork">Setting it up for your own fork</h2>
+<ol class="steps">
+  <li>Generate a key pair: <code>nightowl manifest keygen keys/</code>. Commit <code>keys/nightowl-signing.pub</code>, and store the private key as the repository secret <code>NIGHTOWL_SIGNING_KEY</code>.</li>
+  <li>Make the GHCR packages under <code>nightowl-engines</code> public after the first run, so clients can pull them.</li>
+  <li>Point <code>scripts/install.sh</code> and <code>ci/gitlab/nightowl.gitlab-ci.yml</code> at your repository (the <code>finepointcgi/Night-Owl</code> default).</li>
+  <li>Push a <code>v*</code> tag. The release workflow builds the binaries and refreshes the manifest; release binaries then find the manifest and public key on their own.</li>
+  <li>In the repository's Actions settings, allow Actions to create pull requests, so the watch bot can open its PRs by itself.</li>
+</ol>

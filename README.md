@@ -10,10 +10,12 @@ versions**, normalizes their output into one finding model, removes duplicates a
 and gives you one report, one quality gate and one dashboard. It then keeps itself current
 and keeps watching what you shipped.
 
+Full documentation, with diagrams and a troubleshooting guide, is in [`site/`](site) and is published with GitLab Pages (`.gitlab-ci.yml`). Build it locally with `python3 site/build.py`.
+
 ## Quick start
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/finepointcgi/Night-Owl/main/scripts/install.sh | sh
 nightowl scan path/to/project
 ```
 
@@ -103,7 +105,7 @@ Opt out of automatic checks with `NIGHTOWL_AUTO_UPDATE=0` or `--no-update`.
    key as the repository secret `NIGHTOWL_SIGNING_KEY`.
 2. Make the GHCR packages under `nightowl-engines` public after the first run, so clients can pull
    them.
-3. Replace `OWNER/REPO` in `scripts/install.sh` and `ci/gitlab/nightowl.gitlab-ci.yml`.
+3. Replace `finepointcgi/Night-Owl` (this project's own repository) in `scripts/install.sh` and `ci/gitlab/nightowl.gitlab-ci.yml`.
 4. Push a `v*` tag. The release workflow builds the binaries and refreshes the manifest, and
    release binaries then find the manifest and the public key on their own.
 
@@ -182,9 +184,9 @@ Not in the policy yet: required SBOM fields and a maximum age for accepted risks
 ```yaml
 permissions: { contents: read, security-events: write, pull-requests: write }
 steps:
-  - uses: actions/checkout@v4
+  - uses: actions/checkout@v7
     with: { fetch-depth: 0 }
-  - uses: OWNER/REPO@v1          # this repository's action.yml
+  - uses: finepointcgi/Night-Owl@v0.1.1        # this repository's action.yml
     with: { fail-on: high }
 ```
 

@@ -1,7 +1,7 @@
 # Night Owl for GitLab CI. Include it from your .gitlab-ci.yml:
 #
 #   include:
-#     - remote: https://raw.githubusercontent.com/OWNER/REPO/main/ci/gitlab/nightowl.gitlab-ci.yml
+#     - remote: https://raw.githubusercontent.com/finepointcgi/Night-Owl/main/ci/gitlab/nightowl.gitlab-ci.yml
 #
 # Results show in the merge request widget and diff (code quality report), the job summary
 # artifact (nightowl.md), and SARIF for other tools. On merge requests only new findings fail
@@ -11,7 +11,7 @@ variables:
   NIGHTOWL_FAIL_ON: ""  # empty: use .nightowl/policy.yml (default high if there is none)
   NIGHTOWL_PATH: "."
   NIGHTOWL_ARGS: ""
-  NIGHTOWL_REPO: OWNER/REPO
+  NIGHTOWL_REPO: finepointcgi/Night-Owl
 
 nightowl:
   stage: test

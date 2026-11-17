@@ -1,0 +1,60 @@
+<h1>How it works</h1>
+<p class="lead">A short tour of what happens between <code>nightowl scan</code> and the final pass or fail.</p>
+
+<h2 id="pipeline">The scan pipeline</h2>
+<div class="diagram">
+<svg viewBox="0 0 760 200" role="img" aria-label="Pipeline: project, engines, normalize, merge, enrich, gate and reports">
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#888"/></marker></defs>
+  <rect class="box2" x="8" y="70" width="90" height="56" rx="8"/><text x="53" y="103" text-anchor="middle">Your project</text>
+  <rect class="box" x="140" y="20" width="120" height="30" rx="6"/><text x="200" y="40" text-anchor="middle">Syft · OSV</text>
+  <rect class="box" x="140" y="62" width="120" height="30" rx="6"/><text x="200" y="82" text-anchor="middle">Opengrep · cppcheck</text>
+  <rect class="box" x="140" y="104" width="120" height="30" rx="6"/><text x="200" y="124" text-anchor="middle">gitleaks · Trivy</text>
+  <rect class="box" x="140" y="146" width="120" height="30" rx="6"/><text x="200" y="166" text-anchor="middle">lizard</text>
+  <rect class="box2" x="310" y="70" width="100" height="56" rx="8"/><text x="360" y="95" text-anchor="middle">Normalize</text><text x="360" y="112" text-anchor="middle">one format</text>
+  <rect class="box2" x="450" y="70" width="90" height="56" rx="8"/><text x="495" y="95" text-anchor="middle">Merge</text><text x="495" y="112" text-anchor="middle">duplicates</text>
+  <rect class="box2" x="580" y="70" width="90" height="56" rx="8"/><text x="625" y="95" text-anchor="middle">Label</text><text x="625" y="112" text-anchor="middle">context, triage</text>
+  <rect class="box" x="690" y="70" width="64" height="56" rx="8"/><text x="722" y="95" text-anchor="middle">Gate</text><text x="722" y="112" text-anchor="middle">+ reports</text>
+  <path class="arrow" marker-end="url(#a)" d="M98,98 L138,98"/>
+  <path class="arrow" marker-end="url(#a)" d="M260,35 L308,90"/><path class="arrow" marker-end="url(#a)" d="M260,77 L308,95"/>
+  <path class="arrow" marker-end="url(#a)" d="M260,119 L308,105"/><path class="arrow" marker-end="url(#a)" d="M260,161 L308,112"/>
+  <path class="arrow" marker-end="url(#a)" d="M410,98 L448,98"/><path class="arrow" marker-end="url(#a)" d="M540,98 L578,98"/>
+  <path class="arrow" marker-end="url(#a)" d="M670,98 L688,98"/>
+</svg>
+</div>
+<ol>
+  <li><strong>Run engines.</strong> Each engine has an adapter. Independent engines are told what to scan; a failing engine becomes a warning, never a crash.</li>
+  <li><strong>Normalize.</strong> Every result becomes one <code>Finding</code> with the same fields: severity, category, location, rule, a stable ID.</li>
+  <li><strong>Merge.</strong> If two engines report the same problem (the same CVE, for example), you see it once.</li>
+  <li><strong>Label.</strong> Findings are tagged with their context (test, docs, production...), reachability, and your saved triage decision.</li>
+  <li><strong>Gate and report.</strong> Your policy decides pass or fail, and reports are written in the formats you asked for.</li>
+</ol>
+
+<h2 id="fingerprints">Fingerprints: IDs that don't change</h2>
+<p>Triage only works if the same problem has the same ID next week. Night Owl builds IDs so they survive rescans, other engines, and code moving around:</p>
+<table>
+  <tr><th>Finding type</th><th>ID is built from</th></tr>
+  <tr><td>Dependency vulnerability</td><td>The package and the canonical advisory ID (a CVE is preferred over vendor IDs)</td></tr>
+  <tr><td>Code finding</td><td>The rule, the file, and the <em>normalized snippet</em>, not the line number</td></tr>
+  <tr><td>Secret</td><td>A hash of the secret value (the value itself is discarded)</td></tr>
+</table>
+<p>Result: edit the file above a finding and its ID stays the same, so your "false positive" decision sticks.</p>
+
+<h2 id="projects">Inside the code</h2>
+<table>
+  <tr><th>Project</th><th>Role</th></tr>
+  <tr><td><code>NightOwl.Core</code></td><td>Finding model, fingerprints, merging, policy, triage, gates, monitoring, fix planning, the signed-manifest updater</td></tr>
+  <tr><td><code>NightOwl.Engines</code></td><td>One adapter per engine (<code>IEngine</code>), <code>ToolRunner</code> (local binary or pinned container), the rule pack, the canary corpus</td></tr>
+  <tr><td><code>NightOwl.Ai</code></td><td>Clients for Claude and Ollama, used by the AI review</td></tr>
+  <tr><td><code>NightOwl.Cli</code></td><td>The <code>nightowl</code> command</td></tr>
+  <tr><td><code>NightOwl.Web</code></td><td>The Blazor dashboard</td></tr>
+</table>
+<p>To add an engine you write one class implementing <code>IEngine</code> and add one entry to <code>engines/engines.json</code>. Any engine that outputs SARIF can reuse the shared <code>SarifParser</code>.</p>
+
+<h2 id="privacy">What stays on your machine</h2>
+<ul>
+  <li>Scans run locally in containers. Your source is not uploaded anywhere.</li>
+  <li>Dependency lookups send only <strong>package names and versions</strong> to OSV.dev, the same as OSV-Scanner does.</li>
+  <li>Secret values are never written to reports, SARIF or the dashboard. Only a hash and the first 4 characters (to recognise the key type) are kept.</li>
+  <li>Commit author names and emails are not stored.</li>
+  <li>The AI features are opt-in, and the local option (Ollama) keeps everything on the machine. See <a href="ai-pentest.html">AI review and pen testing</a>.</li>
+</ul>

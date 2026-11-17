@@ -46,7 +46,6 @@ Prioritized by (impact on real users) ÷ (effort). Status is checked against the
 ## Known loose ends (from the last session)
 
 - v0.1.0 binaries and `install.sh` still use the old Nightjar names; cut v0.1.1 after the rename settles.
-- `engines-release` fix (#4) must merge before the engine bump (#3).
 - Windows and Linux binaries are built but never run.
 - `BaseImageWatcher`, `FixCommand`, `AdvisoryMonitor` slightly exceed the complexity limit.
 

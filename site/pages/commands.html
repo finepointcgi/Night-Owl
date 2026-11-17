@@ -1,0 +1,79 @@
+<h1>Command reference</h1>
+<p class="lead">Every <code>nightowl</code> command. Square brackets are optional. Run any command with no arguments to see its usage.</p>
+
+<h2 id="scan">nightowl scan</h2>
+<pre><code>nightowl scan [path] [options]</code></pre>
+<p>Scans <code>path</code> (default: the current folder).</p>
+<table>
+  <tr><th>Option</th><th>What it does</th></tr>
+  <tr><td><code>--format table|json|sarif|markdown|codeclimate</code></td><td>Main output format (default <code>table</code>).</td></tr>
+  <tr><td><code>--output file</code></td><td>Write the main output to a file.</td></tr>
+  <tr><td><code>--sarif-output f</code> <code>--summary-output f</code> <code>--codeclimate-output f</code></td><td>Write extra formats in the same run.</td></tr>
+  <tr><td><code>--fail-on critical|high|medium|low|none</code></td><td>Lowest severity that fails the gate. Overrides the policy file, including per-category rules.</td></tr>
+  <tr><td><code>--include-context test,example,docs,generated,vendored|all</code></td><td>Also let findings from those kinds of files fail the gate. <a href="policy.html#contexts">Details</a></td></tr>
+  <tr><td><code>--since &lt;git-ref&gt;</code></td><td>Gate only on findings in lines changed since that ref (and dependency versions introduced since).</td></tr>
+  <tr><td><code>--baseline &lt;report.json|last&gt;</code></td><td>Gate only on findings not present in an earlier report. <code>last</code> uses your previous scan.</td></tr>
+  <tr><td><code>--ignore-unimported</code></td><td>Exclude dependency findings for packages nothing imports from the gate (never from reports).</td></tr>
+  <tr><td><code>--min-coverage 80</code></td><td>Fail if line coverage is below the percentage.</td></tr>
+  <tr><td><code>--max-duplication 5</code></td><td>Fail if duplicated code exceeds this percentage.</td></tr>
+  <tr><td><code>--max-complexity 15</code></td><td>Report functions above this cyclomatic complexity (default 15).</td></tr>
+  <tr><td><code>--image ref,ref</code></td><td>Also scan these container images.</td></tr>
+  <tr><td><code>--image-include-unfixed</code></td><td>Include image vulnerabilities that have no fix yet.</td></tr>
+  <tr><td><code>--rules dir</code></td><td>Add your own Opengrep/Semgrep-syntax rules.</td></tr>
+  <tr><td><code>--history full|off|&lt;range&gt;</code></td><td>Secret scanning of git history. <code>full</code> (default in a git repo), <code>off</code>, or a range like <code>origin/main..HEAD</code>. Options beginning with <code>--</code> need the <code>=</code> form: <code>--history=--since=2025-01-01</code>.</td></tr>
+  <tr><td><code>--engines a,b</code></td><td>Run only these engines.</td></tr>
+  <tr><td><code>--container</code></td><td>Always use the pinned container image, even if the tool is installed locally.</td></tr>
+  <tr><td><code>--no-update</code></td><td>Skip the daily engine-update check for this run.</td></tr>
+  <tr><td><code>--ai claude|claude-code|ollama</code> <code>--ai-model m</code> <code>--ai-min-severity s</code> <code>--ai-max n</code></td><td>AI exploitability review. <a href="ai-pentest.html">Details</a></td></tr>
+</table>
+
+<h2 id="triage">nightowl triage</h2>
+<pre><code>nightowl triage &lt;id&gt; false-positive|accepted-risk|confirmed|fixed|reset --reason "..." [--expires date] [--shared]</code></pre>
+<p>Records a decision about a finding. <code>--expires</code> makes an accepted risk come back for review on that date. <code>--shared</code> writes to <code>.nightowl/triage.json</code> in the repository so everyone sees it.</p>
+
+<h2 id="policy-cmd">nightowl policy</h2>
+<pre><code>nightowl policy init        # write a commented starter .nightowl/policy.yml
+nightowl policy validate    # check it and print exactly what will apply</code></pre>
+
+<h2 id="sbom-cmd">nightowl sbom</h2>
+<pre><code>nightowl sbom [path] [--format cyclonedx|spdx] [--vex] [--output file]</code></pre>
+<p>Writes a software bill of materials. <code>--vex</code> (CycloneDX) adds a vulnerability-status section built from your triage decisions. <a href="sbom.html">Details</a></p>
+
+<h2 id="monitor">nightowl monitor</h2>
+<pre><code>nightowl monitor [--webhook url] [--fail-on high]</code></pre>
+<p>Re-checks every SBOM you've saved against OSV.dev for <em>new</em> advisories, and posts to a webhook (Slack, Teams, Discord, Mattermost) if you give one (or set <code>NIGHTOWL_WEBHOOK</code>).</p>
+
+<h2 id="fix">nightowl fix</h2>
+<pre><code>nightowl fix [path] [--dry-run] [--pr]</code></pre>
+<p>Upgrades vulnerable dependencies to the smallest version that fixes them. <code>--dry-run</code> shows the plan only. <code>--pr</code> commits to a branch and opens a pull request.</p>
+
+<h2 id="hook">nightowl hook</h2>
+<pre><code>nightowl hook install</code></pre>
+<p>Installs a git pre-commit hook that scans the <em>staged</em> content for secrets and blocks the commit if it finds one. Bypass in an emergency with <code>git commit --no-verify</code>.</p>
+
+<h2 id="pentest">nightowl pentest</h2>
+<pre><code>nightowl pentest init
+nightowl pentest &lt;url&gt; --scope nightowl-scope.json --i-am-authorized
+        [--ai claude|claude-code|ollama] [--source path] [--openapi openapi.json]</code></pre>
+<p>Authorized testing of a running staging system. <a href="ai-pentest.html#pentest">Details and guardrails</a></p>
+
+<h2 id="updates">Updates and health</h2>
+<pre><code>nightowl update          # fetch and install the newest signed engine manifest now
+nightowl canary          # prove every engine still finds the known issues
+nightowl self-update     # replace the nightowl binary with the newest verified release
+nightowl engines         # list engines and versions
+nightowl engines watch [--only base] [--write]   # find newer upstream engine/base-image versions</code></pre>
+
+<h2 id="env">Environment variables</h2>
+<table>
+  <tr><th>Variable</th><th>Purpose</th></tr>
+  <tr><td><code>NIGHTOWL_HOME</code></td><td>Where reports, caches and the manifest live (default <code>~/.nightowl</code>).</td></tr>
+  <tr><td><code>NIGHTOWL_AUTO_UPDATE=0</code></td><td>Turn off the automatic daily update check.</td></tr>
+  <tr><td><code>NIGHTOWL_WEBHOOK</code></td><td>Default webhook for <code>monitor</code>.</td></tr>
+  <tr><td><code>NIGHTOWL_AUTH</code></td><td>Example name for the auth header value in an authenticated pen test (you choose the name in the scope file).</td></tr>
+  <tr><td><code>OLLAMA_HOST</code></td><td>Where to find your local Ollama server for <code>--ai ollama</code>.</td></tr>
+  <tr><td><code>ANTHROPIC_API_KEY</code></td><td>For <code>--ai claude</code>.</td></tr>
+</table>
+
+<h2 id="exit-codes">Exit codes</h2>
+<p><code>0</code> passed &middot; <code>1</code> a gate failed &middot; <code>2</code> error.</p>
