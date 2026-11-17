@@ -39,6 +39,10 @@ Prioritized by (impact on real users) ÷ (effort). Status is checked against the
 | 15 | Packaging | Homebrew tap and Scoop manifest first (small); apt later. Needs a stable release name after the rename. |
 | 16 | Docs | Table of which engine covers which language, and how findings merge. Can be generated from `engines.json` and the rule packs. |
 
+## Release engineering
+
+- Trust a list of signing keys (current + next) so a key can be rotated without a manual reinstall. See `docs/SIGNING-KEY.md`.
+
 ## Known loose ends (from the last session)
 
 - v0.1.0 binaries and `install.sh` still use the old Nightjar names; cut v0.1.1 after the rename settles.
