@@ -71,7 +71,8 @@ public static class GitleaksParser
     /// </summary>
     public static IReadOnlyList<Finding> Combine(IReadOnlyList<Finding> workingTree, IReadOnlyList<SecretLeak> history)
     {
-        var results = workingTree.ToDictionary(f => f.Id);
+        // The same secret can be reported twice (identical fingerprint); keep the first instead of throwing.
+        var results = workingTree.GroupBy(f => f.Id).ToDictionary(g => g.Key, g => g.First());
         foreach (var group in history.GroupBy(h => h.Finding.Id))
         {
             var first = group.OrderBy(h => h.CommitDate ?? DateTimeOffset.MaxValue).First();

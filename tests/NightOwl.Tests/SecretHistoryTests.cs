@@ -66,6 +66,22 @@ public class SecretHistoryTests
         Assert.Equal(logOptions, scope.LogOptions);
     }
 
+    [Fact]
+    public void The_same_secret_reported_twice_in_the_working_tree_does_not_crash()
+    {
+        // Seen on a real repository (pallets/flask): identical fingerprints from one scan.
+        var twice = $$"""
+            [{"RuleID":"github-pat","Description":"GitHub PAT","StartLine":3,"Secret":"{{Current}}","File":"/src/app.env"},
+             {"RuleID":"github-pat","Description":"GitHub PAT","StartLine":3,"Secret":"{{Current}}","File":"/src/app.env"}]
+            """;
+
+        var combined = GitleaksParser.Combine(
+            GitleaksParser.Parse(twice, "/Users/me/app", "gitleaks"),
+            GitleaksParser.ParseLeaks(HistoryReport(), "/Users/me/app", "gitleaks"));
+
+        Assert.Single(combined, f => f.Location!.Path == "app.env");
+    }
+
     private static IReadOnlyList<Finding> Combine() => GitleaksParser.Combine(
         GitleaksParser.Parse(DirReport(), "/Users/me/app", "gitleaks"),
         GitleaksParser.ParseLeaks(HistoryReport(), "/Users/me/app", "gitleaks"));
