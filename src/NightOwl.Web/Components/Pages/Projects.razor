@@ -1,6 +1,7 @@
 @page "/projects"
 @inject ReportArchive Archive
 @inject ScanHistory History
+@inject ProjectTags Tags
 
 <PageTitle>Projects · Night Owl</PageTitle>
 
@@ -17,6 +18,18 @@
     </form>
 </header>
 
+@if (_allTags.Count > 0)
+{
+    <div class="tag-row">
+        <span class="muted small">Tags:</span>
+        <a class="tag @(TagFilter is null ? "on" : "")" href="@Link(null)">all</a>
+        @foreach (var (tag, count) in _allTags)
+        {
+            <a class="tag @(TagFilter == tag ? "on" : "")" href="@Link(tag)">@tag (@count)</a>
+        }
+    </div>
+}
+
 <div class="card table-wrap">
     <table>
         <thead><tr><th>Project</th><th>Open findings</th><th>Trend</th><th>Quality</th><th>Last scan</th><th>Engines</th></tr></thead>
@@ -24,7 +37,8 @@
             @foreach (var row in Visible())
             {
                 <tr>
-                    <td><a href="/project/@row.Key"><b>@System.IO.Path.GetFileName(row.Report.Project)</b></a><div class="muted path">@row.Report.Project</div></td>
+                    <td><a href="/project/@row.Key"><b>@System.IO.Path.GetFileName(row.Report.Project)</b></a><div class="muted path">@row.Report.Project</div>
+                        @foreach (var tag in row.Tags) { <a class="tag" href="@Link(tag)">@tag</a> }</td>
                     <td class="wide">
                         <StackedBar Counts="row.Counts" />
                         <span class="muted small">
@@ -43,10 +57,15 @@
 </div>
 
 @code {
-    private sealed record Row(string Key, ScanReport Report, IReadOnlyDictionary<Severity, int> Counts, int Open, int Risk, IReadOnlyList<int> Trend);
+    private sealed record Row(string Key, ScanReport Report, IReadOnlyDictionary<Severity, int> Counts, int Open, int Risk, IReadOnlyList<int> Trend, IReadOnlyList<string> Tags);
 
     [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
     [SupplyParameterFromQuery(Name = "sort")] public string? Sort { get; set; }
+    [SupplyParameterFromQuery(Name = "tag")] public string? TagFilter { get; set; }
+
+    private List<(string Tag, int Count)> _allTags = [];
+
+    private string Link(string? tag) => "/projects" + (tag is null ? "" : "?tag=" + Uri.EscapeDataString(tag));
 
     private List<Row> _rows = [];
 
@@ -56,13 +75,16 @@
         {
             var open = ReportStats.Open(report).ToList();
             _rows.Add(new Row(ReportArchive.KeyFor(report.Project), report, ReportStats.BySeverity(open), open.Count, ReportStats.RiskScore(open),
-                History.Load(report.Project).TakeLast(20).Select(p => p.Total).ToList()));
+                History.Load(report.Project).TakeLast(20).Select(p => p.Total).ToList(), Tags.Get(report.Project)));
         }
+
+        _allTags = _rows.SelectMany(r => r.Tags).GroupBy(t => t).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => (g.Key, g.Count())).ToList();
     }
 
     private IEnumerable<Row> Visible()
     {
         var rows = string.IsNullOrWhiteSpace(Query) ? _rows : _rows.Where(r => r.Report.Project.Contains(Query, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (TagFilter is not null) { rows = rows.Where(r => r.Tags.Contains(TagFilter)).ToList(); }
         return Sort switch
         {
             "name" => rows.OrderBy(r => System.IO.Path.GetFileName(r.Report.Project), StringComparer.OrdinalIgnoreCase),

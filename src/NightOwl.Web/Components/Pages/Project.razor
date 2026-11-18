@@ -17,6 +17,7 @@
         <p class="crumb"><a href="/projects">Projects</a> /</p>
         <h1>@System.IO.Path.GetFileName(_report.Project)</h1>
         <p class="muted path">@_report.Project</p>
+        <TagEditor @key="_report.Project" Project="@_report.Project" />
     </div>
     <p class="muted right">
         Scanned @_report.StartedAt.ToLocalTime().ToString("g") in @_report.Seconds.ToString("0.0")s<br />

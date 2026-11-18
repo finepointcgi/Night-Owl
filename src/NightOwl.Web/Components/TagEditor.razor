@@ -1,0 +1,37 @@
+@rendermode InteractiveServer
+@inject ProjectTags Tags
+
+@* Tags on one project: remove with the x, add by typing and pressing Enter. *@
+<div class="tag-editor">
+    @foreach (var tag in _tags)
+    {
+        <span class="tag">@tag <button type="button" class="tag-x" aria-label="Remove tag @tag" @onclick="() => Remove(tag)">×</button></span>
+    }
+    @if (_tags.Count < ProjectTags.MaxTags)
+    {
+        <input @bind="_new" @bind:event="oninput" @onkeydown="OnKey" maxlength="30" placeholder="Add tag" aria-label="Add tag" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Project { get; set; } = "";
+
+    private IReadOnlyList<string> _tags = [];
+    private string _new = "";
+
+    protected override void OnInitialized() => _tags = Tags.Get(Project);
+
+    private void OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") { return; }
+        Tags.Add(Project, [_new]);
+        _tags = Tags.Get(Project);
+        _new = "";
+    }
+
+    private void Remove(string tag)
+    {
+        Tags.Remove(Project, tag);
+        _tags = Tags.Get(Project);
+    }
+}
