@@ -22,11 +22,14 @@ public static partial class NewCodeDetector
     /// New = on a line changed since <paramref name="gitRef"/> (compared from the merge base, as a PR
     /// would). Dependency findings count as new when that package version was not in the lockfile
     /// at the merge base. Findings without a location are treated as new, so nothing slips through.
+    /// Renames are detected (<c>--find-renames</c>): moving a file does not make its old findings new.
     /// </summary>
     public static IReadOnlySet<string> SinceGitRef(IEnumerable<Finding> current, string repositoryRoot, string gitRef)
     {
         var mergeBase = Git(repositoryRoot, "merge-base", gitRef, "HEAD").Trim();
-        var changed = ParseDiff(Git(repositoryRoot, "diff", "--unified=0", "--no-color", "--no-ext-diff", mergeBase));
+        var diff = Git(repositoryRoot, "diff", "--unified=0", "--no-color", "--no-ext-diff", "--find-renames", mergeBase);
+        var changed = ParseDiff(diff);
+        var renames = ParseRenames(diff);
 
         // Finding paths are relative to the scanned folder; git paths to the repository root.
         var prefix = (TryGit(repositoryRoot, "rev-parse", "--show-prefix") ?? "").Trim();
@@ -46,7 +49,10 @@ public static partial class NewCodeDetector
             {
                 if (!oldContents.TryGetValue(path, out var old))
                 {
-                    old = oldContents[path] = TryGit(repositoryRoot, "show", $"{mergeBase}:{path}");
+                    // A renamed lockfile has no content at the merge base under its new name;
+                    // look under the name it had then, or every package in it counts as new.
+                    old = oldContents[path] = TryGit(repositoryRoot, "show", $"{mergeBase}:{path}")
+                        ?? (renames.TryGetValue(path, out var oldPath) ? TryGit(repositoryRoot, "show", $"{mergeBase}:{oldPath}") : null);
                 }
 
                 if (old is null || !(old.Contains(package.Name, StringComparison.Ordinal) && old.Contains(package.Version, StringComparison.Ordinal)))
@@ -99,6 +105,40 @@ public static partial class NewCodeDetector
 
         return files;
     }
+
+    /// <summary>
+    /// Rename pairs in a diff (needs <c>--find-renames</c>): new path → the path it had before.
+    /// With rename detection a pure rename produces no hunks, so <see cref="ParseDiff"/> already
+    /// leaves its unchanged lines alone; this map covers the lockfile lookup above.
+    /// </summary>
+    public static Dictionary<string, string> ParseRenames(string diff)
+    {
+        var renames = new Dictionary<string, string>(StringComparer.Ordinal);
+        string? from = null;
+        foreach (var line in diff.Split('\n'))
+        {
+            if (line.StartsWith("rename from ", StringComparison.Ordinal))
+            {
+                from = Unquote(line["rename from ".Length..].Trim());
+            }
+            else if (from is not null && line.StartsWith("rename to ", StringComparison.Ordinal))
+            {
+                renames[Unquote(line["rename to ".Length..].Trim())] = from;
+                from = null;
+            }
+        }
+
+        return renames;
+    }
+
+    /// <summary>
+    /// Git C-quotes paths containing spaces or non-ASCII bytes in diff headers
+    /// ("rename from \"my file.py\""); the quotes are not part of the path.
+    /// </summary>
+    private static string Unquote(string path) =>
+        path.Length >= 2 && path[0] == '"' && path[^1] == '"'
+            ? path[1..^1].Replace("\\\"", "\"").Replace("\\\\", "\\")
+            : path;
 
     private static string Git(string root, params string[] args) =>
         TryGit(root, args) ?? throw new InvalidOperationException($"git {string.Join(' ', args)} failed in {root}. Is the ref fetched? (CI: use fetch-depth: 0)");

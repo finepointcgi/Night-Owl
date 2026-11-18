@@ -113,6 +113,69 @@ public sealed class TriageAndGateTests : IDisposable
         Assert.Equal(["new-dep", "new-line"], ids.Order());
     }
 
+    [Fact]
+    public void Rename_parser_reads_from_to_pairs()
+    {
+        const string diff = """
+            diff --git a/old.py b/new.py
+            similarity index 90%
+            rename from old.py
+            rename to new.py
+            diff --git a/plain.py b/plain.py
+            --- a/plain.py
+            +++ b/plain.py
+            """;
+
+        var renames = NewCodeDetector.ParseRenames(diff);
+
+        Assert.Equal("old.py", renames["new.py"]);
+        Assert.Single(renames);
+    }
+
+    [Fact]
+    public void Rename_parser_unquotes_git_quoted_paths()
+    {
+        const string diff = """
+            diff --git a/my old.py b/my new.py
+            similarity index 100%
+            rename from "my old.py"
+            rename to "my new.py"
+            """;
+
+        var renames = NewCodeDetector.ParseRenames(diff);
+
+        Assert.Equal("my old.py", renames["my new.py"]);
+    }
+
+    [Fact]
+    public void Since_git_ref_survives_file_renames()
+    {
+        Git("init", "-q", "-b", "main");
+        Git("config", "user.email", "t@example.invalid");
+        Git("config", "user.name", "t");
+        File.WriteAllText(Path.Combine(_project, "app.py"), "a = 1\nb = 2\n");
+        File.WriteAllText(Path.Combine(_project, "requirements.txt"), "requests==2.0.0\n");
+        Git("add", ".");
+        Git("commit", "-qm", "base");
+        Git("checkout", "-qb", "feature");
+        // Rename both files; app.py also gains one line, the lockfile is untouched.
+        Git("mv", "app.py", "main.py");
+        File.AppendAllText(Path.Combine(_project, "main.py"), "eval(x)\n");
+        Git("mv", "requirements.txt", "reqs.txt");
+        Git("commit", "-qam", "rename");
+
+        Finding[] findings =
+        [
+            Code("old-line", "main.py", 1),
+            Code("new-line", "main.py", 3),
+            Dependency("old-dep", "requests", "2.0.0") with { Location = new SourceLocation("reqs.txt") },
+        ];
+
+        var ids = NewCodeDetector.SinceGitRef(findings, _project, "main");
+
+        Assert.Equal(["new-line"], ids.Order());
+    }
+
     private void Git(params string[] args)
     {
         var start = new ProcessStartInfo("git") { WorkingDirectory = _project, RedirectStandardOutput = true, RedirectStandardError = true };
