@@ -51,6 +51,47 @@ public class FindingMergerTests
         Assert.Equal(["1.2.3", "2.0.0"], first.FixedVersions);
     }
 
+    private static Finding Code(string id, string rule, string cwe, int line, Severity severity = Severity.High, string path = "src/app.py") => new()
+    {
+        Id = id, Category = FindingCategory.Code, Severity = severity, RuleId = rule, Title = rule,
+        Engines = ["opengrep"], Aliases = [cwe], Location = new SourceLocation(path, line),
+    };
+
+    [Fact]
+    public void Taint_finding_absorbs_pattern_finding_on_the_same_line()
+    {
+        var taint = Code("t", "nightowl.taint.python.injection", "CWE-74", 9, Severity.High);
+        var pattern = Code("p", "nightowl.python.subprocess-shell", "CWE-78", 9, Severity.Critical);
+
+        var merged = FindingMerger.Merge([pattern, taint]);
+
+        var one = Assert.Single(merged);
+        Assert.Equal("t", one.Id);
+        Assert.Equal(Severity.Critical, one.Severity); // never understated
+        Assert.Contains("nightowl.python.subprocess-shell", one.Aliases);
+        Assert.Contains("CWE-78", one.Aliases);
+    }
+
+    [Fact]
+    public void Unrelated_findings_on_the_same_line_are_kept()
+    {
+        var taint = Code("t", "nightowl.taint.python.injection", "CWE-74", 9);
+        var weakHash = Code("h", "nightowl.python.weak-hash", "CWE-328", 9, Severity.Medium);
+        var otherLine = Code("o", "nightowl.python.eval", "CWE-95", 20);
+        var otherFile = Code("f", "nightowl.python.subprocess-shell", "CWE-78", 9, path: "src/other.py");
+
+        Assert.Equal(4, FindingMerger.Merge([taint, weakHash, otherLine, otherFile]).Count);
+    }
+
+    [Fact]
+    public void Path_traversal_taint_does_not_swallow_an_injection_pattern()
+    {
+        var taint = Code("t", "nightowl.taint.python.path-traversal", "CWE-22", 5);
+        var pattern = Code("p", "nightowl.python.subprocess-shell", "CWE-78", 5);
+
+        Assert.Equal(2, FindingMerger.Merge([taint, pattern]).Count);
+    }
+
     private static Finding Make(string id, Severity severity, string engine, string[]? fixes = null) => new()
     {
         Id = id, Category = FindingCategory.Vulnerability, Severity = severity, RuleId = "CVE-1", Title = "t",

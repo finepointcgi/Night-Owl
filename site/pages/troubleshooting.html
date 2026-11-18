@@ -16,7 +16,7 @@
 <p>Triage is keyed to the fingerprint, which includes the rule, file and normalized snippet. If you rewrote the flagged code, or <em>moved it to another file</em>, it is a different finding. Mark it again. Use <code>--shared</code> so the decision is saved in the repo.</p>
 
 <h3>The same problem appears twice.</h3>
-<p>Night Owl merges identical findings across engines, but a pattern rule and a taint rule that fire on the same line can still both report it (for example <code>eval</code> in NodeGoat). It's a known issue, on the backlog.</p>
+<p>Identical findings from different engines are merged by fingerprint. When a <em>pattern</em> rule and a <em>taint</em> rule describe the same bug on the same line (for example a shell call built from request data), Night Owl keeps the taint finding and folds the pattern rule into it: you'll see its rule id and CWE listed as aliases, and the severity is the worse of the two. Unrelated findings on one line (a weak hash beside an injection) are never merged. One side effect: a triage decision you made on the pattern finding no longer matches, because that finding's id was absorbed. Triage the surviving finding once.</p>
 
 <h3>A secret was reported in git history, but I deleted it.</h3>
 <p>Deleting the line doesn't remove it from history; anyone with a clone can read it. <strong>Rotate the credential.</strong> That is the fix.</p>

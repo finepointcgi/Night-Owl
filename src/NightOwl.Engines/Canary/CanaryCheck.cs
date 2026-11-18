@@ -60,7 +60,8 @@ public static class CanaryCheck
             var missing = Expectations
                 .Where(x => ran.Contains(x.Engine))
                 .Where(x => !report.Findings.Any(f =>
-                    f.RuleId.Equals(x.RuleId, StringComparison.OrdinalIgnoreCase)
+                    (f.RuleId.Equals(x.RuleId, StringComparison.OrdinalIgnoreCase)
+                        || f.Aliases.Contains(x.RuleId, StringComparer.OrdinalIgnoreCase)) // absorbed by a taint finding on the same line
                     && f.Engines.Contains(x.Engine, StringComparer.OrdinalIgnoreCase)))
                 .ToList();
 

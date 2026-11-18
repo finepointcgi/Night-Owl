@@ -41,12 +41,11 @@ def h():
 <h3>The summary</h3>
 <pre><code>Scanned demo in 4.2s with syft v1.55.0, osv-scanner v2.7.0, gitleaks v8.30.1, opengrep v1.33.1, lizard 1.25.0, coverage built-in
 Code quality: Average complexity 1.0 · Functions 2 · Highest complexity 1 · Overly complex functions 0 · Duplicated code 0.0%
-10 findings: 6 High, 3 Medium, 1 Low</code></pre>
+9 findings: 5 High, 3 Medium, 1 Low</code></pre>
 <p>The versions listed are the exact engine versions that ran, so a report is reproducible. The "Code quality" line comes from lizard and the coverage reader.</p>
 
 <h3>The findings</h3>
 <pre><code>HIGH   Vulnerability  GHSA-35jh-r3h4-6jhm  Command Injection in lodash in lodash@4.17.15  → fix: 4.17.21  (package-lock.json)  [not imported directly]
-HIGH   Code           nightowl.python.subprocess-shell  Command run through a shell with a dynamic string...  (src/app.py:9)
 HIGH   Secret         secret/aws-access-token  Hard-coded secret (aws-access-token) in tests/test_config.py  (tests/test_config.py:1)  [test]
 HIGH   Vulnerability  GHSA-p6mc-m468-83gw  Prototype Pollution in lodash in lodash@4.17.15  → fix: 4.17.19  ...
 HIGH   Code           nightowl.taint.python.injection  User input reaches a command, SQL query or eval without sanitization...  (src/app.py:9)
@@ -61,14 +60,14 @@ LOW    License        license/UNKNOWN  No license detected in lodash@4.17.15  (p
   <tr><td><code>→ fix: 4.17.21</code></td><td>The smallest released version that fixes this advisory. Several lodash advisories ask for different versions, and <code>nightowl fix</code> picks the one version that satisfies all of them.</td></tr>
   <tr><td><code>[not imported directly]</code></td><td>No source file imports lodash. The risk is lower, but it is only a hint. <a href="sbom.html#reachability">Why</a></td></tr>
   <tr><td><code>[test]</code></td><td>The file is in a test folder. It's listed, but doesn't fail the gate by default.</td></tr>
-  <tr><td>Two <code>src/app.py:9</code> rows</td><td>Two different rules (a pattern rule and a data-flow rule) fire on the same line. That is a <a href="troubleshooting.html#limits">known duplicate</a>: the pattern rule says "shell with a dynamic string", the taint rule says "and the string came from the request".</td></tr>
+  <tr><td>One <code>src/app.py:9</code> row</td><td>Two rules fire on that line: a pattern rule ("shell with a dynamic string") and a data-flow rule ("and the string came from the request"). Night Owl keeps the more informative data-flow finding and folds the pattern rule into it, so you see one problem, not two.</td></tr>
 </table>
 
 <h3>The verdict</h3>
 <pre><code>Not gating: 1 in test files (still listed). Use --include-context or gate.include-contexts to gate them.
   note: 1 of these are secrets. Fake test keys are common, but a real one committed in tests is still leaked: review them.
-Quality gate FAILED: 5 finding(s) at or above the policy threshold (high).</code></pre>
-<p>Six findings are High. Five of them count, and the sixth (the key in <code>tests/</code>) is held out. The command exits with code <code>1</code>, so CI would stop here. The note about secrets is deliberate: the tool tells you it left a secret out of the gate so you can check that it really is fake.</p>
+Quality gate FAILED: 4 finding(s) at or above the policy threshold (high).</code></pre>
+<p>Five findings are High. Four of them count, and the fifth (the key in <code>tests/</code>) is held out. The command exits with code <code>1</code>, so CI would stop here. The note about secrets is deliberate: the tool tells you it left a secret out of the gate so you can check that it really is fake.</p>
 
 <h2 id="fix">Step 2: fix what's real</h2>
 <h3>The dependency findings</h3>
@@ -87,7 +86,7 @@ def ping():
     if not re.fullmatch(r"[A-Za-z0-9.-]{1,253}", host):
         abort(400)
     return subprocess.check_output(["ping", "-c", "1", host])</code></pre>
-<p>Both the pattern rule and the taint rule stop firing: there is no shell, and the value is checked before use. Rescan to confirm.</p>
+<p>The finding stops firing: there is no shell, and the value is checked before use. Rescan to confirm.</p>
 <h3>The weak hash</h3>
 <p>MD5 is fine for cache keys, but not for security. If this is a cache key, say so and accept it (next step). If it protects anything, switch to SHA-256.</p>
 

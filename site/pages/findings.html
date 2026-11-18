@@ -106,7 +106,15 @@
   <li><strong>Engines, aliases, fixed versions, references:</strong> the union (case-insensitive, no repeats).</li>
   <li>The final list is sorted by severity (highest first), then by title.</li>
 </ul>
-<p>Note that merging is by <em>fingerprint</em>. Two different rules that fire on the same line have different fingerprints, so they stay as two findings. That's why the example in <a href="tutorial.html">Worked example</a> shows two findings on <code>src/app.py:9</code>.</p>
+<h3>Pattern and taint findings on the same line</h3>
+<p>Merging by fingerprint alone leaves one more kind of duplicate: a <em>pattern</em> rule and a <em>taint</em> rule are different rules, so they have different fingerprints, yet they often describe one bug. After the fingerprint merge, a second pass collapses them when <strong>all</strong> of these hold:</p>
+<ul>
+  <li>both are <code>Code</code> findings in the same file on the same start line,</li>
+  <li>one is a taint rule and the other a pattern rule, and</li>
+  <li>the taint rule's weakness class covers the pattern's. CWE-74 (injection) covers CWE-77, 78, 88, 89, 90, 94, 95, 98 and 917; CWE-22 covers 23 and 36; any other class covers only itself.</li>
+</ul>
+<p>The taint finding stays, because it says more (untrusted data really arrives). It takes the <strong>worse severity</strong>, the union of engines, and the pattern rule's id and CWEs as <code>aliases</code>. Findings that aren't related, such as a weak hash on the same line as an injection, or an injection in a different file, are untouched. In the <a href="tutorial.html">worked example</a>, ten findings became nine this way.</p>
+<p><strong>Triage note:</strong> the absorbed finding's id disappears. A decision you recorded earlier against the pattern finding will no longer match; triage the surviving finding once.</p>
 
 <h2 id="gate-logic">How the gate counts findings</h2>
 <ol>
