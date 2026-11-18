@@ -48,7 +48,7 @@
   <li><strong>Single signing key, no rotation.</strong> See <a href="staying-current.html#signing-key">the signing key</a>.</li>
   <li><strong>Some noise remains:</strong> framework code that implements a sink itself (such as express's own <code>res.send</code>) is flagged; Flask's lockfile reports CVEs in dev-only tools.</li>
   <li><strong>The VS Code extension</strong> has only had a syntax check.</li>
-  <li><strong><code>fix</code></strong> doesn't cover Maven, Cargo or Composer yet.</li>
+  <li><strong><code>fix</code></strong> doesn't cover Maven or Cargo yet.</li>
 </ul>
 
 <h2 id="roadmap">Roadmap</h2>
@@ -56,7 +56,7 @@
 <ol>
   <li><strong>Less noise:</strong> merge duplicate findings, add a confidence field, tune rules against real repositories.</li>
   <li><strong>Fingerprints that survive renames</strong>, with a regression corpus so changes never silently re-open triaged findings.</li>
-  <li><strong>Wider auto-fix:</strong> Maven, Cargo, Composer; warn on major-version jumps.</li>
+  <li><strong>Wider auto-fix:</strong> Maven, Cargo; warn on major-version jumps.</li>
   <li><strong>Depth:</strong> a second C/C++ engine, cognitive complexity, symbol-level reachability for Go.</li>
   <li><strong>Experience:</strong> a tested VS Code extension, bulk triage, an organization-wide dashboard.</li>
   <li><strong>Trust:</strong> multi-key signing, provenance (SLSA) for releases and SBOMs.</li>

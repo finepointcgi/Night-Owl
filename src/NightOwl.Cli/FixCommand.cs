@@ -253,6 +253,28 @@ internal static partial class FixCommand
                 return true;
             }
 
+            case "Packagist":
+            {
+                // Findings point at composer.lock; the requirement lives in composer.json
+                // next to it. Edit it first, then let composer sync the lockfile without
+                // installing or running scripts/plugins.
+                var composerJson = Path.Combine(directory, "composer.json");
+                if (!File.Exists(composerJson))
+                {
+                    return false;
+                }
+
+                var text = await File.ReadAllTextAsync(composerJson);
+                if (ComposerManifestEditor.SetRequirement(text, name, version) is not { } updated)
+                {
+                    return false;
+                }
+
+                await File.WriteAllTextAsync(composerJson, updated);
+                Run(directory, "composer", "update", name, "--no-install", "--no-scripts", "--no-plugins", "--no-interaction");
+                return true;
+            }
+
             default:
                 return false;
         }
