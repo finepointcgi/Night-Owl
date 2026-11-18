@@ -182,3 +182,11 @@ td.wide { min-width: 220px; } .small { font-size: .8rem; }
 .engines { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: .9rem; }
 .card > h3:first-child, .card.table-wrap > h3:first-child { margin-top: 0; }
 .card { margin-bottom: 16px; } .grid-2 + .card, .grid-2 + .grid-2 { margin-top: 16px; }
+
+/* ---- Scan history ---- */
+.banner { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: .9rem; }
+tr.current td { background: var(--accent-soft); }
+td.actions { white-space: nowrap; display: flex; gap: 12px; flex-wrap: wrap; font-size: .85rem; }
+.tag { display: inline-block; padding: 1px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: .78rem; font-weight: 600; margin-right: 6px; }
+.linklike { background: none; border: 0; padding: 0; font: inherit; font-size: .82rem; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.small-btn { font-size: .78rem; padding: 3px 8px; } td input { font: inherit; font-size: .85rem; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); max-width: 10em; }

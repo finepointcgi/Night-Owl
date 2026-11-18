@@ -11,11 +11,13 @@ public sealed class ReportArchive(string homeDirectory)
 {
     public string Directory { get; } = Path.Combine(homeDirectory, "reports");
 
-    public string Save(ScanReport report)
+    /// <summary>Saves the latest report for the project and keeps this scan in its history (see <see cref="ScanVault"/>).</summary>
+    public string Save(ScanReport report, string? label = null)
     {
         System.IO.Directory.CreateDirectory(Directory);
         var path = Path.Combine(Directory, $"{KeyFor(report.Project)}.json");
         File.WriteAllText(path, report.ToJson());
+        new ScanVault(homeDirectory).Save(report, label);
         return path;
     }
 

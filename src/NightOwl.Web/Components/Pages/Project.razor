@@ -2,6 +2,7 @@
 @using NightOwl.Core.Ai
 @inject ReportArchive Archive
 @inject ScanHistory History
+@inject ScanVault Vault
 
 <PageTitle>@(_report is null ? "Not found" : System.IO.Path.GetFileName(_report.Project)) · Night Owl</PageTitle>
 
@@ -24,9 +25,15 @@
 </header>
 
 <nav class="tabs" aria-label="Project sections">
-    <a href="/project/@Key" class="@(Tab == "summary" ? "active" : "")">Summary</a>
-    <a href="/project/@Key?tab=findings" class="@(Tab == "findings" ? "active" : "")">Findings <span class="pill">@_report.Findings.Count</span></a>
+    <a href="@Url(null)" class="@(Tab == "summary" ? "active" : "")">Summary</a>
+    <a href="@Url("findings")" class="@(Tab == "findings" ? "active" : "")">Findings <span class="pill">@_report.Findings.Count</span></a>
+    <a href="@Url("scans")" class="@(Tab == "scans" ? "active" : "")">Scans <span class="pill">@_scans.Count</span></a>
 </nav>
+
+@if (_viewingOlder)
+{
+    <div class="banner">Viewing the scan from <b>@_report.StartedAt.ToLocalTime().ToString("g")</b>@(ScanLabel is { } l ? $" ({l})" : ""), not the latest. <a href="/project/@Key">Back to the latest scan</a></div>
+}
 
 @if (Tab == "summary")
 {
@@ -122,6 +129,38 @@
 </div>
 }
 
+@if (Tab == "scans")
+{
+<div class="card table-wrap">
+    <h3>Scan history</h3>
+    <p class="muted small">Each scan is kept so you can reopen it or compare two. Add a label, such as a release version, with the button in the row or <code>nightowl scan --label v1.4.0</code>. The newest @ScanVault.MaxScans are kept, plus any labelled scan.</p>
+    <table>
+        <thead><tr><th>Scan</th><th>Label</th><th>Open</th><th>Critical</th><th>High</th><th>Time</th><th></th></tr></thead>
+        <tbody>
+            @for (var i = 0; i < _scans.Count; i++)
+            {
+                var scan = _scans[i];
+                var older = i + 1 < _scans.Count ? _scans[i + 1] : null;
+                <tr class="@(scan.Id == _currentId ? "current" : "")">
+                    <td>@scan.At.ToLocalTime().ToString("g") @if (i == 0) { <span class="pill">latest</span> }</td>
+                    <td><ScanLabelEditor @key="scan.Id" Project="@_report.Project" ScanId="@scan.Id" Label="@scan.Label" /></td>
+                    <td>@scan.Open</td>
+                    <td class="@(scan.Critical > 0 ? "bad" : "")">@scan.Critical</td>
+                    <td>@scan.High</td>
+                    <td class="muted">@scan.Seconds.ToString("0.0")s</td>
+                    <td class="actions">
+                        <a href="/project/@Key?scan=@scan.Id">Open</a>
+                        @if (older is not null) { <a href="/project/@Key/compare?from=@older.Id&to=@scan.Id">Changes since previous</a> }
+                        @if (i > 0) { <a href="/project/@Key/compare?from=@scan.Id&to=@_scans[0].Id">Compare to latest</a> }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (_scans.Count == 0) { <p class="muted">No saved scans yet. History starts with the next scan.</p> }
+</div>
+}
+
 @if (Tab == "findings")
 {
 <div class="card">
@@ -205,8 +244,22 @@
     [SupplyParameterFromQuery(Name = "ai")] public string? AiFilter { get; set; }
     [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
     [SupplyParameterFromQuery(Name = "tab")] public string? TabParam { get; set; }
+    [SupplyParameterFromQuery(Name = "scan")] public string? ScanParam { get; set; }
 
-    private string Tab => TabParam == "findings" || AiFilter is not null || SeverityFilter is not null || CategoryFilter is not null || Query is not null ? "findings" : "summary";
+    private List<ScanInfo> _scans = [];
+    private string? _currentId;
+    private bool _viewingOlder;
+    private string? ScanLabel => _scans.FirstOrDefault(s => s.Id == _currentId)?.Label;
+
+    private string Url(string? tab)
+    {
+        var query = new List<string>();
+        if (tab is not null) { query.Add($"tab={tab}"); }
+        if (ScanParam is not null) { query.Add($"scan={ScanParam}"); }
+        return $"/project/{Key}" + (query.Count == 0 ? "" : "?" + string.Join("&", query));
+    }
+
+    private string Tab => TabParam == "scans" ? "scans" : TabParam == "findings" || AiFilter is not null || SeverityFilter is not null || CategoryFilter is not null || Query is not null ? "findings" : "summary";
     private List<Finding> _open = [];
     private IReadOnlyDictionary<Severity, int> _counts = new Dictionary<Severity, int>();
     private IReadOnlyList<(string, int)> _byCategory = [];
@@ -217,10 +270,29 @@
 
     protected override void OnParametersSet()
     {
-        _report = Archive.LoadAll().FirstOrDefault(r => ReportArchive.KeyFor(r.Project) == Key);
-        if (_report is null)
+        var latest = Archive.LoadAll().FirstOrDefault(r => ReportArchive.KeyFor(r.Project) == Key);
+        _report = latest;
+        if (latest is null)
         {
             return;
+        }
+
+        _scans = Vault.List(latest.Project).ToList();
+        if (_scans.Count == 0)
+        {
+            // Scanned before history existed: show the one report we have as the only entry.
+            var open = ReportStats.Open(latest).ToList();
+            _scans = [new ScanInfo(ScanVault.IdFor(latest), latest.StartedAt, open.Count, open.Count(f => f.Severity == Severity.Critical),
+                open.Count(f => f.Severity == Severity.High), latest.Seconds, latest.ManifestSequence, null)];
+        }
+
+        _currentId = ScanVault.IdFor(latest);
+        _viewingOlder = false;
+        if (ScanParam is not null && Vault.Load(latest.Project, ScanParam) is { } older)
+        {
+            _report = older;
+            _currentId = ScanParam;
+            _viewingOlder = true;
         }
 
         _history = History.Load(_report.Project);

@@ -99,7 +99,7 @@ internal static class Cli
 
         var archive = new ReportArchive(store.HomeDirectory);
         var previous = archive.Load(report.Project);
-        archive.Save(report);
+        archive.Save(report, options.Value("label"));
         new ScanHistory(store.HomeDirectory).Record(report, previous);
         if (pipeline.Sbom is { } sbom)
         {
@@ -315,6 +315,7 @@ internal static class Cli
                                   [--since <git-ref> | --baseline <report.json|last>]  gate on new findings only
                                   [--min-coverage 80] [--max-duplication 5] [--max-complexity 15]
                                   [--image ref,ref] [--image-include-unfixed]   container images to scan
+                                  [--label v1.4.0]   name this scan in the dashboard history (e.g. a release)
                                   [--format markdown|codeclimate] [--sarif-output f] [--summary-output f]
                                   [--codeclimate-output f] [--no-update]
                                   [--ai claude|claude-code|ollama] [--ai-model name] [--ai-min-severity medium] [--ai-max 25]
