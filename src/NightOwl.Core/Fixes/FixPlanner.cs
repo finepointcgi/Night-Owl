@@ -8,7 +8,15 @@ public sealed record DependencyFix(
     string TargetVersion,
     string? ManifestPath,
     IReadOnlyList<string> Advisories,
-    Severity WorstSeverity);
+    Severity WorstSeverity)
+{
+    /// <summary>
+    /// True when the target crosses a major-version boundary (2.x → 3.x). The planner still
+    /// picks it — it is the smallest version that fixes the advisories — but callers flag it,
+    /// because a major jump is where an automatic upgrade stops being a formality.
+    /// </summary>
+    public bool IsMajorJump => FixPlanner.MajorOf(TargetVersion) > FixPlanner.MajorOf(Package.Version);
+}
 
 public sealed record FixPlan(IReadOnlyList<DependencyFix> Fixes, IReadOnlyList<(Finding Finding, string Reason)> Unfixable);
 
@@ -96,6 +104,9 @@ public static class FixPlanner
             _ => string.CompareOrdinal(aPre, bPre),
         };
     }
+
+    /// <summary>The major component of a version ("v2.3.1" → 2); 0 when it has no numeric lead.</summary>
+    internal static long MajorOf(string version) => Split(version).Parts.FirstOrDefault();
 
     private static (long[] Parts, string? Pre) Split(string version)
     {

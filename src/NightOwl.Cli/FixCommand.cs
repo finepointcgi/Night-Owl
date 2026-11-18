@@ -41,7 +41,7 @@ internal static partial class FixCommand
         Console.WriteLine($"{plan.Fixes.Count} upgrade(s):");
         foreach (var fix in plan.Fixes)
         {
-            Console.WriteLine($"  {fix.WorstSeverity,-8} {fix.Package.Ecosystem,-9} {fix.Package.Name} {fix.Package.Version} → {fix.TargetVersion}  ({string.Join(", ", fix.Advisories)})");
+            Console.WriteLine($"  {fix.WorstSeverity,-8} {fix.Package.Ecosystem,-9} {fix.Package.Name} {fix.Package.Version} → {fix.TargetVersion}  ({string.Join(", ", fix.Advisories)}){(fix.IsMajorJump ? "  ⚠ major version jump" : "")}");
         }
 
         if (options.Has("dry-run"))
@@ -270,6 +270,12 @@ internal static partial class FixCommand
         if (plan.Unfixable.Count > 0)
         {
             body.AppendLine($"\n{plan.Unfixable.Count} advisor{(plan.Unfixable.Count == 1 ? "y has" : "ies have")} no fixed version yet and need another mitigation.");
+        }
+
+        var majorJumps = applied.Where(f => f.IsMajorJump).ToList();
+        if (majorJumps.Count > 0)
+        {
+            body.AppendLine($"\n⚠ {majorJumps.Count} upgrade{(majorJumps.Count == 1 ? "" : "s")} cross{(majorJumps.Count == 1 ? "es" : "")} a major-version boundary ({string.Join(", ", majorJumps.Select(f => f.Package.Name))}): check the release notes before merging.");
         }
 
         body.AppendLine("\nPlease run the build and tests before merging: even small upgrades can change behavior.");
