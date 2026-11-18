@@ -30,14 +30,25 @@
   <tr><td>Export</td><td>Downloads for this project.</td></tr>
 </table>
 
-<h2 id="history">Scan history and versions</h2>
-<p>Every scan is kept, not just the latest. On the <strong>Scans</strong> tab you can:</p>
+<h2 id="history">Scan history, releases and change</h2>
+<p>Every scan is kept, not just the latest. On the <strong>Scans</strong> tab you can open an older scan to see the project exactly as it was (a banner makes clear it is not the latest), label scans, and compare any two.</p>
+<h3 id="baseline">Change is measured against a release, not the last scan</h3>
+<p>If you scan every night, "what changed since the previous scan" is nearly always "nothing", and the real drift builds up unseen. So Night Owl measures change against a <strong>baseline</strong>: a scan you have <strong>labelled</strong>, normally a release. Unlabelled scans, such as nightly runs, are never the baseline.</p>
 <ul>
-  <li><strong>Open</strong> an older scan and see the project exactly as it was, with a banner so you don't mistake it for the latest.</li>
-  <li><strong>Label</strong> a scan, for example with the release it belongs to. Click "Add label", or set it when scanning: <code>nightowl scan . --label v1.4.0</code>.</li>
-  <li><strong>Compare</strong> two scans: what is <em>new</em>, what was <em>resolved</em>, what <em>changed</em> severity or triage state, and how much is unchanged. A finding triaged as a false positive counts as resolved.</li>
+  <li>The project <strong>Summary</strong> shows "Since v1.4.0: N new, N resolved, N changed", with a link to the full list.</li>
+  <li>The <strong>Projects</strong> list has a "Since release" column, so you can see which project has drifted most since its last release.</li>
+  <li>By default the baseline is the <em>newest</em> labelled scan. On the Scans tab, "Measure change since" lets you pick a different release.</li>
+  <li>A finding triaged as a false positive counts as resolved.</li>
 </ul>
-<p>The newest 30 scans of each project are kept, plus any scan with a label. Scans are stored as files under <code>~/.nightowl/reports/scans/</code>. Scans made before this feature existed have no history; it starts with the next scan.</p>
+<h3 id="labels">How a scan gets labelled</h3>
+<table>
+  <tr><th>Way</th><th>How</th></tr>
+  <tr><td>Automatically, at a git tag</td><td>If the repository's HEAD is exactly at a tag (a release build, for example a CI job run on <code>v1.4.0</code>), the scan is labelled with that tag. Nothing to configure. Nightly scans of later commits are not on a tag, so they stay unlabelled.</td></tr>
+  <tr><td>On the command line</td><td><code>nightowl scan . --label v1.4.0</code>. This wins over the automatic tag.</td></tr>
+  <tr><td>In the dashboard</td><td>"Add label" on any row of the Scans tab. Use it to mark an existing scan as a baseline.</td></tr>
+</table>
+<p>With no labelled scan yet, the Summary says so and tells you how to make one. In CI, add a job that runs <code>nightowl scan</code> when a tag is pushed; that scan becomes the release baseline.</p>
+<p>The newest 30 scans of each project are kept, plus every labelled scan, so busy nightly runs never push a release out. Scans are stored as files under <code>~/.nightowl/reports/scans/</code>. Scans made before this feature existed have no history; it starts with the next scan.</p>
 
 <h2 id="exports">Exports</h2>
 <p>The <strong>Exports</strong> page, and each project's Export tab, download a project's latest scan (or an older one you have open):</p>

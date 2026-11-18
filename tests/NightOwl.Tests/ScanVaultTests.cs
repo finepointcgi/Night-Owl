@@ -80,4 +80,43 @@ public sealed class ScanVaultTests : IDisposable
         var diff = ScanDiff.Compare(Report(t, F("x")), Report(t.AddDays(1), F("x", triage: TriageState.FalsePositive)));
         Assert.Equal(["x"], diff.Resolved.Select(f => f.Id));
     }
+
+    [Fact]
+    public void The_baseline_is_the_newest_labelled_scan_so_nightly_runs_never_become_it()
+    {
+        var t = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+        var vault = new ScanVault(_home);
+        vault.Save(Report(t, F("a")), "v1.0");
+        vault.Save(Report(t.AddDays(10), F("a"), F("b")), "v1.1");
+        for (var i = 11; i < 20; i++) { vault.Save(Report(t.AddDays(i), F("a"), F("b"), F("n" + i))); } // nightly, unlabelled
+        var scans = vault.List("/p/app");
+        var latest = scans[0].Id;
+
+        Assert.Equal("v1.1", ScanVault.DefaultBaseline(scans, latest)!.Label);
+
+        // Measured against the release, change is the whole fortnight's drift, not just last night.
+        var since = ScanDiff.Compare(vault.Load("/p/app", ScanVault.DefaultBaseline(scans, latest)!.Id)!, vault.Load("/p/app", latest)!);
+        Assert.Equal(["n19"], since.New.Select(f => f.Id));
+        Assert.Equal(1, ScanDiff.Compare(vault.Load("/p/app", scans[1].Id)!, vault.Load("/p/app", latest)!).New.Count); // vs last night
+    }
+
+    [Fact]
+    public void No_baseline_until_a_release_is_labelled_and_the_latest_is_never_its_own_baseline()
+    {
+        var t = DateTimeOffset.UtcNow;
+        var vault = new ScanVault(_home);
+        vault.Save(Report(t, F("a")));
+        Assert.Null(ScanVault.DefaultBaseline(vault.List("/p/app"), vault.List("/p/app")[0].Id));
+
+        vault.Save(Report(t.AddDays(1), F("a")), "v2");
+        var scans = vault.List("/p/app");
+        Assert.Null(ScanVault.DefaultBaseline(scans, scans[0].Id));   // the only labelled scan is the latest itself
+    }
+
+    [Theory]
+    [InlineData("v1.4.0\n", "v1.4.0")]
+    [InlineData("  rel-2\nextra", "rel-2")]
+    [InlineData("", null)]
+    [InlineData("\n\n", null)]
+    public void Git_tag_output_is_cleaned(string output, string? expected) => Assert.Equal(expected, GitTag.Clean(output));
 }

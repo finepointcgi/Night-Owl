@@ -21,7 +21,7 @@
   <tr><td><code>--image-include-unfixed</code></td><td>Include image vulnerabilities that have no fix yet.</td></tr>
   <tr><td><code>--rules dir</code></td><td>Add your own Opengrep/Semgrep-syntax rules.</td></tr>
   <tr><td><code>--history full|off|&lt;range&gt;</code></td><td>Secret scanning of git history. <code>full</code> (default in a git repo), <code>off</code>, or a range like <code>origin/main..HEAD</code>. Options beginning with <code>--</code> need the <code>=</code> form: <code>--history=--since=2025-01-01</code>.</td></tr>
-  <tr><td><code>--label v1.4.0</code></td><td>Name this scan in the dashboard's history, for example with a release version.</td></tr>
+  <tr><td><code>--label v1.4.0</code></td><td>Mark this scan as a release baseline in the dashboard, so change is measured since it. Done automatically when HEAD is exactly at a git tag.</td></tr>
   <tr><td><code>--tags prod,team-a</code></td><td>Tag the project in the dashboard (see <a href="dashboard.html#projects">Projects and tags</a>).</td></tr>
   <tr><td><code>--engines a,b</code></td><td>Run only these engines.</td></tr>
   <tr><td><code>--container</code></td><td>Always use the pinned container image, even if the tool is installed locally.</td></tr>

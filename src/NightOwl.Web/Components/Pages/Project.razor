@@ -40,6 +40,29 @@
 
 @if (Tab == "summary")
 {
+@if (_baseline is not null && _sinceDiff is not null)
+{
+    <div class="card since">
+        <div>
+            <h3>Since <span class="tag">@_baseline.Label</span> <span class="muted small">@_baseline.At.ToLocalTime().ToString("d")</span></h3>
+            <p class="muted small">Measured against that release, not the previous scan, so nightly runs don't hide what changed.</p>
+        </div>
+        <div class="since-nums">
+            <span class="kpi-critical"><b>@_sinceDiff.New.Count</b> new</span>
+            <span class="ok"><b>@_sinceDiff.Resolved.Count</b> resolved</span>
+            <span><b>@_sinceDiff.Changed.Count</b> changed</span>
+            <a href="/project/@Key/compare?from=@_baseline.Id&to=@_currentId">See the changes</a>
+            <a href="@Url("scans")">Change baseline</a>
+        </div>
+    </div>
+}
+else if (_scans.Any(x => x.Label is not null) == false)
+{
+    <div class="card since">
+        <p class="muted small" style="margin:0">No release baseline yet. Label a scan (<code>nightowl scan --label v1.4.0</code>), or scan at a git tag and it is labelled for you. Then this page shows what changed since that release, however often you scan.</p>
+    </div>
+}
+
 <section class="kpis">
     <div class="kpi kpi-critical"><span>Critical</span><b>@ReportStats.Count(_counts, Severity.Critical)</b></div>
     <div class="kpi kpi-high"><span>High</span><b>@ReportStats.Count(_counts, Severity.High)</b></div>
@@ -158,6 +181,25 @@
 {
 <div class="card table-wrap">
     <h3>Scan history</h3>
+    @if (_scans.Any(x => x.Label is not null))
+    {
+        <form method="get" class="filters">
+            <input type="hidden" name="tab" value="scans" />
+            @if (ScanParam is not null) { <input type="hidden" name="scan" value="@ScanParam" /> }
+            <label class="muted small" for="baseline">Measure change since</label>
+            <select id="baseline" name="baseline" onchange="this.form.submit()">
+                @foreach (var x in _scans.Where(x => x.Label is not null && x.Id != _currentId))
+                {
+                    <option value="@x.Id" selected="@(x.Id == _baseline?.Id)">@x.Label (@x.At.ToLocalTime().ToString("d"))</option>
+                }
+            </select>
+            <noscript><button type="submit" class="btn">Use</button></noscript>
+            @if (_baseline is not null && _sinceDiff is not null)
+            {
+                <span class="muted small">@_sinceDiff.New.Count new, @_sinceDiff.Resolved.Count resolved</span>
+            }
+        </form>
+    }
     <p class="muted small">Each scan is kept so you can reopen it or compare two. Add a label, such as a release version, with the button in the row or <code>nightowl scan --label v1.4.0</code>. The newest @ScanVault.MaxScans are kept, plus any labelled scan.</p>
     <table>
         <thead><tr><th>Scan</th><th>Label</th><th>Open</th><th>Critical</th><th>High</th><th>Time</th><th></th></tr></thead>
@@ -165,7 +207,6 @@
             @for (var i = 0; i < _scans.Count; i++)
             {
                 var scan = _scans[i];
-                var older = i + 1 < _scans.Count ? _scans[i + 1] : null;
                 <tr class="@(scan.Id == _currentId ? "current" : "")">
                     <td>@scan.At.ToLocalTime().ToString("g") @if (i == 0) { <span class="pill">latest</span> }</td>
                     <td><ScanLabelEditor @key="scan.Id" Project="@_report.Project" ScanId="@scan.Id" Label="@scan.Label" /></td>
@@ -175,7 +216,7 @@
                     <td class="muted">@scan.Seconds.ToString("0.0")s</td>
                     <td class="actions">
                         <a href="/project/@Key?scan=@scan.Id">Open</a>
-                        @if (older is not null) { <a href="/project/@Key/compare?from=@older.Id&to=@scan.Id">Changes since previous</a> }
+                        @if (_baseline is not null && scan.Id != _baseline.Id) { <a href="/project/@Key/compare?from=@_baseline.Id&to=@scan.Id">Changes since @_baseline.Label</a> }
                         @if (i > 0) { <a href="/project/@Key/compare?from=@scan.Id&to=@_scans[0].Id">Compare to latest</a> }
                     </td>
                 </tr>
@@ -270,6 +311,10 @@
     [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
     [SupplyParameterFromQuery(Name = "tab")] public string? TabParam { get; set; }
     [SupplyParameterFromQuery(Name = "scan")] public string? ScanParam { get; set; }
+    [SupplyParameterFromQuery(Name = "baseline")] public string? BaselineParam { get; set; }
+
+    private ScanInfo? _baseline;
+    private ScanDiff? _sinceDiff;
 
     private List<ScanInfo> _scans = [];
     private string? _currentId;
@@ -329,6 +374,10 @@
             _currentId = ScanParam;
             _viewingOlder = true;
         }
+
+        // Change is measured against a release (a labelled scan), not the previous scan: nightly runs would make that meaningless.
+        _baseline = _scans.FirstOrDefault(x => x.Id == BaselineParam && x.Label is not null && x.Id != _currentId) ?? ScanVault.DefaultBaseline(_scans, _currentId!);
+        _sinceDiff = _baseline is not null && Vault.Load(latest.Project, _baseline.Id) is { } baseReport ? ScanDiff.Compare(baseReport, _report) : null;
 
         _history = History.Load(_report.Project);
         _open = ReportStats.Open(_report).ToList();

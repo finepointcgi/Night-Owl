@@ -202,3 +202,8 @@ a.tag { text-decoration: none; } a.tag.on { background: var(--accent); color: #f
 .export-links { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: .85rem; } .export-links .disabled { color: var(--muted); text-decoration: line-through; cursor: help; }
 .stig-list { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 6px; }
 label.btn { cursor: pointer; }
+
+/* ---- Since release ---- */
+.since { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border-left: 4px solid var(--accent); }
+.since h3 { margin-bottom: 2px; } .since p { margin: 0; }
+.since-nums { display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap; } .since-nums b { font-size: 1.5rem; font-variant-numeric: tabular-nums; }

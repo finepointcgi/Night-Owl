@@ -82,6 +82,14 @@ public sealed class ScanVault(string homeDirectory)
         File.WriteAllText(LabelsPath(project), JsonSerializer.Serialize(labels, Json));
     }
 
+    /// <summary>
+    /// The scan to measure change against: the newest labelled scan (a release) other than <paramref name="latestId"/>.
+    /// Nightly scans are unlabelled, so they never become the baseline and "what changed" stays about the release.
+    /// Null when no release has been scanned yet.
+    /// </summary>
+    public static ScanInfo? DefaultBaseline(IReadOnlyList<ScanInfo> scans, string latestId) =>
+        scans.Where(s => s.Label is not null && s.Id != latestId).OrderByDescending(s => s.Id, StringComparer.Ordinal).FirstOrDefault();
+
     private Dictionary<string, string> Labels(string project)
     {
         try

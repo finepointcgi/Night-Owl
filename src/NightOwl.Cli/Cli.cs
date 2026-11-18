@@ -99,7 +99,7 @@ internal static class Cli
 
         var archive = new ReportArchive(store.HomeDirectory);
         var previous = archive.Load(report.Project);
-        archive.Save(report, options.Value("label"));
+        archive.Save(report, options.Value("label") ?? GitTag.AtHead(path)); // a scan at a release tag is labelled with it
         if (options.Value("tags") is { } tags) { new ProjectTags(store.HomeDirectory).Add(report.Project, tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)); }
         new ScanHistory(store.HomeDirectory).Record(report, previous);
         if (pipeline.Sbom is { } sbom)
@@ -316,7 +316,8 @@ internal static class Cli
                                   [--since <git-ref> | --baseline <report.json|last>]  gate on new findings only
                                   [--min-coverage 80] [--max-duplication 5] [--max-complexity 15]
                                   [--image ref,ref] [--image-include-unfixed]   container images to scan
-                                  [--label v1.4.0]   name this scan in the dashboard history (e.g. a release)
+                                  [--label v1.4.0]   name this scan as a release baseline in the dashboard
+                                                        (done automatically when HEAD is at a git tag)
                                   [--tags prod,team-a]   tag the project in the dashboard
                                   [--format markdown|codeclimate] [--sarif-output f] [--summary-output f]
                                   [--codeclimate-output f] [--no-update]

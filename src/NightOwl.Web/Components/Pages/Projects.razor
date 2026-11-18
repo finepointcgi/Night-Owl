@@ -2,6 +2,7 @@
 @inject ReportArchive Archive
 @inject ScanHistory History
 @inject ProjectTags Tags
+@inject ScanVault Vault
 
 <PageTitle>Projects · Night Owl</PageTitle>
 
@@ -32,7 +33,7 @@
 
 <div class="card table-wrap">
     <table>
-        <thead><tr><th>Project</th><th>Open findings</th><th>Trend</th><th>Quality</th><th>Last scan</th><th>Engines</th></tr></thead>
+        <thead><tr><th>Project</th><th>Open findings</th><th>Trend</th><th>Since release</th><th>Quality</th><th>Last scan</th><th>Engines</th></tr></thead>
         <tbody>
             @foreach (var row in Visible())
             {
@@ -46,6 +47,10 @@
                         </span>
                     </td>
                     <td><Sparkline Values="row.Trend" Label="Open findings over recent scans" /></td>
+                    <td class="small">
+                        @if (row.Since is { } since) { <a href="/project/@row.Key/compare?from=@since.BaseId&to=@since.LatestId"><b>@since.New</b> new</a> <span class="muted">since @since.Label</span> }
+                        else { <span class="muted">no release yet</span> }
+                    </td>
                     <td class="muted small">@Quality(row.Report)</td>
                     <td class="muted">@row.Report.StartedAt.ToLocalTime().ToString("g")</td>
                     <td>@(row.Report.Engines.Count(e => e.Succeeded)) ok@(row.Report.Engines.Any(e => !e.Succeeded) ? "" : "")@if (row.Report.Engines.Any(e => !e.Succeeded)) { <span class="bad"> · @(row.Report.Engines.Count(e => !e.Succeeded)) failed</span> }</td>
@@ -57,7 +62,8 @@
 </div>
 
 @code {
-    private sealed record Row(string Key, ScanReport Report, IReadOnlyDictionary<Severity, int> Counts, int Open, int Risk, IReadOnlyList<int> Trend, IReadOnlyList<string> Tags);
+    private sealed record Row(string Key, ScanReport Report, IReadOnlyDictionary<Severity, int> Counts, int Open, int Risk, IReadOnlyList<int> Trend, IReadOnlyList<string> Tags, SinceRelease? Since);
+    private sealed record SinceRelease(string Label, string BaseId, string LatestId, int New);
 
     [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
     [SupplyParameterFromQuery(Name = "sort")] public string? Sort { get; set; }
@@ -75,7 +81,7 @@
         {
             var open = ReportStats.Open(report).ToList();
             _rows.Add(new Row(ReportArchive.KeyFor(report.Project), report, ReportStats.BySeverity(open), open.Count, ReportStats.RiskScore(open),
-                History.Load(report.Project).TakeLast(20).Select(p => p.Total).ToList(), Tags.Get(report.Project)));
+                History.Load(report.Project).TakeLast(20).Select(p => p.Total).ToList(), Tags.Get(report.Project), Since(report)));
         }
 
         _allTags = _rows.SelectMany(r => r.Tags).GroupBy(t => t).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => (g.Key, g.Count())).ToList();
@@ -91,6 +97,14 @@
             "scan" => rows.OrderByDescending(r => r.Report.StartedAt),
             _ => rows.OrderByDescending(r => r.Risk),
         };
+    }
+
+    private SinceRelease? Since(ScanReport latest)
+    {
+        var scans = Vault.List(latest.Project);
+        var latestId = ScanVault.IdFor(latest);
+        if (ScanVault.DefaultBaseline(scans, latestId) is not { } baseline || Vault.Load(latest.Project, baseline.Id) is not { } baseReport) { return null; }
+        return new SinceRelease(baseline.Label!, baseline.Id, latestId, ScanDiff.Compare(baseReport, latest).New.Count);
     }
 
     private static string Quality(ScanReport r)
