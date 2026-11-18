@@ -66,7 +66,7 @@
   <tr><td><code>project</code></td><td>Absolute path that was scanned.</td></tr>
   <tr><td><code>startedAt</code>, <code>seconds</code></td><td>When the scan began and how long it took.</td></tr>
   <tr><td><code>manifestSequence</code></td><td>The engine manifest in use (<code>0</code> if running unpinned). Lets you reproduce a scan.</td></tr>
-  <tr><td><code>engines[]</code></td><td>One entry per engine that ran: <code>engine</code>, <code>version</code>, <code>succeeded</code>, <code>seconds</code>, <code>error</code>. A failed engine shows <code>succeeded: false</code> and its error, but the scan still completes.</td></tr>
+  <tr><td><code>engines[]</code></td><td>One entry per engine that ran: <code>engine</code>, <code>version</code>, <code>succeeded</code>, <code>seconds</code>, <code>error</code>, and an optional <code>note</code> for something worth knowing about a run that still succeeded (a check that was skipped to keep the scan fast). A failed engine shows <code>succeeded: false</code> and its error, but the scan still completes.</td></tr>
   <tr><td><code>findings[]</code></td><td>The merged, sorted finding list (worst severity first, then by title).</td></tr>
   <tr><td><code>metrics</code></td><td>Project-wide numbers: <code>complexity.functions</code>, <code>complexity.average</code>, <code>complexity.max</code>, <code>complexity.over-threshold</code>, <code>duplication.rate</code>, and <code>coverage.lines</code> when a coverage report exists.</td></tr>
   <tr><td><code>pentest</code></td><td>Only for <code>nightowl pentest</code>: who authorized it, the scope hash, the plan, requests sent and blocked.</td></tr>

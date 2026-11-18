@@ -23,7 +23,7 @@ public sealed class SyftEngine(ToolRunner runner, LicensePolicy licensePolicy) :
 
         var output = await runner.RunAsync(
             Name,
-            ["scan", $"dir:{ToolRunner.SourceToken}", "-o", $"cyclonedx-json={ToolRunner.WorkToken}/{sbomFile}", "-q"],
+            ["scan", $"dir:{ToolRunner.SourceToken}", "-o", $"cyclonedx-json={ToolRunner.WorkToken}/{sbomFile}", "-q", .. Exclusions.Syft(context.Excluded)],
             context.RootPath, context.WorkDirectory, TimeSpan.FromMinutes(10), cancellationToken);
 
         var sbomPath = Path.Combine(context.WorkDirectory, sbomFile);

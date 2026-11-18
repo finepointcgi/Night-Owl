@@ -38,6 +38,23 @@
 </ul>
 <p>Each engine looks at that profile and decides whether it has anything to do. The progress line <code>» Detected: ecosystems [npm]; languages [python]</code> is that profile. The <a href="engines.html#when">engines page</a> lists the exact condition for each engine. If you want to narrow it, use <code>--engines syft,gitleaks</code>.</p>
 
+<h2 id="gitignore">Files git ignores are skipped</h2>
+<p>In a git repository, Night Owl asks git which paths it ignores (<code>.gitignore</code>, <code>.git/info/exclude</code> and your global ignore file) and tells every engine to skip them. These are build output, dependency folders, caches, and things like AI-agent worktrees: copies of your whole repository that would otherwise be scanned again and again.</p>
+<p>It matters a lot. On a real 3,000-file .NET project that also held 150,000 ignored files, Opengrep alone went from timing out after 10 minutes to finishing in 26 seconds, and gitleaks' working-tree pass from minutes to 5 seconds. The scan prints how many paths it skipped:</p>
+<pre><code>» Skipping 51 path(s) that git ignores (build output, dependencies, caches)</code></pre>
+<p>Details worth knowing:</p>
+<ul>
+  <li><strong>Secrets in history are still scanned.</strong> Only the working-tree pass skips ignored paths. A secret that was committed and <em>later</em> gitignored stays visible in the history scan.</li>
+  <li>Each engine gets the paths in its own format, and each path is anchored to the project root, so ignoring a top-level <code>bin</code> doesn't hide <code>src/bin</code>.</li>
+  <li>Outside a git repository, or if git isn't installed, only the built-in skip list applies (<code>node_modules</code>, <code>bin</code>, <code>obj</code>, <code>.venv</code>, <code>dist</code>, <code>build</code>, <code>target</code>, <code>.git</code>).</li>
+</ul>
+
+<h2 id="long-runs">Long scans stay visible and bounded</h2>
+<ul>
+  <li><strong>Heartbeat.</strong> While an engine runs, Night Owl prints <code>still running opengrep (60s)...</code> every 30 seconds, so a long scan never looks hung.</li>
+  <li><strong>Duplication is capped.</strong> Duplicate-code detection compares code with all other code, so its cost grows much faster than the project does. Over 25 MB of source it is skipped, and after 5 minutes it is stopped. Complexity results are kept either way, and the scan says so: <code>note (lizard): duplication check skipped: 69 MB of source is over the 25 MB limit.</code> The note is also recorded in the report's <code>engines[].note</code>.</li>
+</ul>
+
 <h2 id="order">Why order matters</h2>
 <p>Engines run from lowest <em>order</em> number to highest. Syft goes first because it writes an <strong>SBOM</strong> (a list of every package) into the shared scan context. License checks and the reachability analysis read that list instead of parsing the lockfiles again. The SBOM is also saved, which is what lets <code>nightowl monitor</code> re-check your dependencies later without rescanning.</p>
 

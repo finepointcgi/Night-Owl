@@ -26,7 +26,7 @@ public sealed partial class LizardEngine(ToolRunner runner, int complexityThresh
     public async Task<EngineResult> RunAsync(ScanContext context, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
-        string[] excludeArgs = [.. Excludes.SelectMany(e => new[] { "-x", e })];
+        string[] excludeArgs = [.. Excludes.SelectMany(e => new[] { "-x", e }), .. Exclusions.Lizard(context.Excluded)];
 
         var csv = await runner.RunAsync(Name, ["--csv", .. excludeArgs, ToolRunner.SourceToken],
             context.RootPath, context.WorkDirectory, TimeSpan.FromMinutes(20), cancellationToken);
@@ -49,21 +49,56 @@ public sealed partial class LizardEngine(ToolRunner runner, int complexityThresh
             context.Metrics[MetricNames.ComplexFunctions] = findings.Count;
         }
 
-        // Duplicate detection is a separate pass: lizard prints it as text, not in the CSV.
-        var duplicates = await runner.RunAsync(Name, ["-Eduplicate", .. excludeArgs, ToolRunner.SourceToken],
-            context.RootPath, context.WorkDirectory, TimeSpan.FromMinutes(20), cancellationToken);
-        // lizard's exit code counts threshold warnings, so judge the run by its output instead.
-        if (duplicates.StandardOutput.Contains("Total duplicate rate", StringComparison.Ordinal))
+        // Duplicate detection is a separate pass: lizard prints it as text, not in the CSV. It compares code against
+        // all other code, so its cost grows much faster than the project does. Past a size limit it is skipped (or
+        // cut off after a few minutes) and says so, instead of making the whole scan wait for the complexity results.
+        string? note = null;
+        var sourceBytes = SourceBytes(context);
+        if (sourceBytes > DuplicationSizeLimitBytes)
         {
-            var (blocks, rate) = ParseDuplicates(duplicates.StandardOutput, context.RootPath);
-            findings.AddRange(blocks.Select(DuplicateFinding));
-            if (rate is { } r)
+            note = $"duplication check skipped: {sourceBytes / 1_000_000} MB of source is over the {DuplicationSizeLimitBytes / 1_000_000} MB limit. Scan a sub-folder to measure duplication.";
+        }
+        else
+        {
+            try
             {
-                context.Metrics[MetricNames.DuplicationRate] = r;
+                var duplicates = await runner.RunAsync(Name, ["-Eduplicate", .. excludeArgs, ToolRunner.SourceToken],
+                    context.RootPath, context.WorkDirectory, DuplicationTimeout, cancellationToken);
+                // lizard's exit code counts threshold warnings, so judge the run by its output instead.
+                if (duplicates.StandardOutput.Contains("Total duplicate rate", StringComparison.Ordinal))
+                {
+                    var (blocks, rate) = ParseDuplicates(duplicates.StandardOutput, context.RootPath);
+                    findings.AddRange(blocks.Select(DuplicateFinding));
+                    if (rate is { } r)
+                    {
+                        context.Metrics[MetricNames.DuplicationRate] = r;
+                    }
+                }
+            }
+            catch (TimeoutException)
+            {
+                note = $"duplication check stopped after {DuplicationTimeout.TotalMinutes:0} minutes; complexity results are complete.";
             }
         }
 
-        return new EngineResult(Name, findings, stopwatch.Elapsed);
+        return new EngineResult(Name, findings, stopwatch.Elapsed, Note: note);
+    }
+
+    private const long DuplicationSizeLimitBytes = 25_000_000;
+    private static readonly TimeSpan DuplicationTimeout = TimeSpan.FromMinutes(5);
+
+    private static long SourceBytes(ScanContext context)
+    {
+        long total = 0;
+        foreach (var file in ProjectDetector.EnumerateFiles(context.RootPath, context.Excluded))
+        {
+            if (ProjectDetector.ExtensionLanguages.ContainsKey(Path.GetExtension(file)))
+            {
+                try { total += new FileInfo(file).Length; } catch (IOException) { }
+            }
+        }
+
+        return total;
     }
 
     public sealed record FunctionInfo(string Path, string Name, int StartLine, int Complexity, int Lines);
@@ -177,7 +212,7 @@ public sealed class CoverageEngine : IEngine
     public Task<EngineResult> RunAsync(ScanContext context, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
-        if (CoverageReader.Find(context.RootPath, ProjectDetector.EnumerateFiles(context.RootPath)) is { } coverage)
+        if (CoverageReader.Find(context.RootPath, ProjectDetector.EnumerateFiles(context.RootPath, context.Excluded)) is { } coverage)
         {
             context.Metrics[MetricNames.LineCoverage] = coverage.LineRate;
         }

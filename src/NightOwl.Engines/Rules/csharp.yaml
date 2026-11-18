@@ -5,23 +5,51 @@ rules:
     severity: ERROR
     message: SQL built by string concatenation or interpolation and passed to a command. Use parameters (SqlParameter / AddWithValue) instead.
     metadata: { cwe: "CWE-89", category: security }
-    pattern-either:
-      - patterns:
-          - pattern-either:
-              - pattern: new $CMD($A + $B, ...)
-              - pattern: new $CMD($"...", ...)
-          - metavariable-regex:
-              metavariable: $CMD
-              regex: ^(SqlCommand|NpgsqlCommand|MySqlCommand|SqliteCommand|OracleCommand)$
-      - pattern: $X.CommandText = $A + $B
-      - pattern: $X.CommandText = $"..."
-      - patterns:
-          - pattern-either:
-              - pattern: $DB.$EXEC($A + $B, ...)
-              - pattern: $DB.$EXEC($"...", ...)
-          - metavariable-regex:
-              metavariable: $EXEC
-              regex: ^(FromSqlRaw|ExecuteSqlRaw|ExecuteSqlRawAsync|Query|QueryAsync|Execute|ExecuteAsync)$
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern: new $CMD($A + $B, ...)
+                  - pattern: new $CMD($"...", ...)
+              - metavariable-regex:
+                  metavariable: $CMD
+                  regex: ^(SqlCommand|NpgsqlCommand|MySqlCommand|SqliteCommand|OracleCommand)$
+          - pattern: $X.CommandText = $A + $B
+          - pattern: $X.CommandText = $"..."
+          - patterns:
+              - pattern-either:
+                  - pattern: $DB.$EXEC($A + $B, ...)
+                  - pattern: $DB.$EXEC($"...", ...)
+              - metavariable-regex:
+                  metavariable: $EXEC
+                  regex: ^(FromSqlRaw|ExecuteSqlRaw|ExecuteSqlRawAsync|Query|QueryAsync|Execute|ExecuteAsync)$
+      # Schema statements are reported by the rule below: identifiers can't be bound as parameters.
+      - pattern-not-regex: '(?i)\$?"\s*(drop|create|alter|truncate)\s'
+
+  - id: nightowl.csharp.sql-ddl-interpolation
+    languages: [csharp]
+    severity: WARNING
+    message: A schema statement (DROP/CREATE/ALTER/TRUNCATE) is built from a variable. Identifiers can't be passed as parameters, so make sure the name comes from a fixed list or is validated and quoted, and never from request data.
+    metadata: { cwe: "CWE-89", category: security }
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern: new $CMD($A + $B, ...)
+                  - pattern: new $CMD($"...", ...)
+              - metavariable-regex:
+                  metavariable: $CMD
+                  regex: ^(SqlCommand|NpgsqlCommand|MySqlCommand|SqliteCommand|OracleCommand)$
+          - pattern: $X.CommandText = $A + $B
+          - pattern: $X.CommandText = $"..."
+          - patterns:
+              - pattern-either:
+                  - pattern: $DB.$EXEC($A + $B, ...)
+                  - pattern: $DB.$EXEC($"...", ...)
+              - metavariable-regex:
+                  metavariable: $EXEC
+                  regex: ^(FromSqlRaw|ExecuteSqlRaw|ExecuteSqlRawAsync|Query|QueryAsync|Execute|ExecuteAsync)$
+      - pattern-regex: '(?i)\$?"\s*(drop|create|alter|truncate)\s'
 
   - id: nightowl.csharp.insecure-deserialization
     languages: [csharp]

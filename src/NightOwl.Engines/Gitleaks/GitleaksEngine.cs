@@ -56,7 +56,7 @@ public sealed class GitleaksEngine(ToolRunner runner, HistoryScope? history = nu
     {
         var stopwatch = Stopwatch.StartNew();
 
-        var (workingTreeJson, error) = await RunReportAsync(context, "gitleaks-dir.json", ["dir", ToolRunner.SourceToken], cancellationToken);
+        var (workingTreeJson, error) = await RunReportAsync(context, "gitleaks-dir.json", ["dir", ToolRunner.SourceToken, .. WorkingTreeConfig(context)], cancellationToken);
         if (error is not null)
         {
             return EngineResult.Failed(Name, error, stopwatch.Elapsed);
@@ -82,6 +82,25 @@ public sealed class GitleaksEngine(ToolRunner runner, HistoryScope? history = nu
 
         return new EngineResult(Name, findings, stopwatch.Elapsed);
     }
+
+    /// <summary>
+    /// Keeps the working-tree scan out of the paths git ignores (build output, dependency folders, agent worktrees),
+    /// by extending gitleaks' default rules with an allowlist. Only the working-tree scan: a secret that was committed
+    /// and later ignored must still be found in history.
+    /// </summary>
+    private static string[] WorkingTreeConfig(ScanContext context)
+    {
+        var toml = Exclusions.GitleaksConfig(context.Excluded, context.RootPath);
+        if (toml is null)
+        {
+            return [];
+        }
+
+        File.WriteAllText(Path.Combine(context.WorkDirectory, GitignoreConfig), toml);
+        return ["--config", $"{ToolRunner.WorkToken}/{GitignoreConfig}"];
+    }
+
+    private const string GitignoreConfig = "gitleaks-gitignore.toml";
 
     private async Task<(string? Json, string? Error)> RunReportAsync(
         ScanContext context, string reportFile, string[] mode, CancellationToken cancellationToken)

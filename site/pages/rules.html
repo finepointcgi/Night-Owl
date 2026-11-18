@@ -24,6 +24,9 @@ def x():
 <h2 id="catalog">All rules</h2>
 {{RULES}}
 
+<h2 id="ddl">Why schema statements get their own C# rule</h2>
+<p>A <code>DROP DATABASE</code> or <code>CREATE TABLE</code> built with string interpolation looks like SQL injection, but a database or table <em>name</em> can't be passed as a query parameter, so "use parameters" is advice nobody can follow. Night Owl reports those under <code>nightowl.csharp.sql-ddl-interpolation</code> at medium severity, with advice that fits (take the name from a fixed list or validate and quote it, and never from request data), and keeps the high-severity <code>sql-injection-concat</code> for data-manipulation statements where parameters do exist. It was added after scanning a real project, where a test-data loader tripped the old rule twice.</p>
+
 <h2 id="custom">Writing your own rules</h2>
 <p>Night Owl uses Opengrep, which reads Semgrep-syntax rules. Put <code>.yaml</code> files in a folder and pass it with <code>--rules</code>:</p>
 <pre><code>nightowl scan . --rules ./my-rules</code></pre>

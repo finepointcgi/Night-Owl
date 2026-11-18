@@ -29,6 +29,7 @@
   <tr><th>Symptom</th><th>Likely cause and fix</th></tr>
   <tr><td>"Cannot connect to the Docker daemon"</td><td>Start Docker Desktop (or the Docker service). Night Owl needs it for engines.</td></tr>
   <tr><td>Image pull fails with HTTP 429</td><td>Docker Hub rate limit. Night Owl retries through <code>mirror.gcr.io</code> automatically; just run again.</td></tr>
+  <tr><td>A scan of a big project takes many minutes</td><td>Watch the <code>still running ...</code> lines to see which engine is slow. Make sure the heavy folders are in <code>.gitignore</code> (Night Owl skips whatever git ignores) or in <code>.nightowl/ignore</code>. Duplicate-code detection is skipped automatically over 25 MB of source.</td></tr>
   <tr><td>First scan is very slow</td><td>Images are being pulled and built once. Later runs are fast.</td></tr>
   <tr><td>"nightowl: command not found" after install</td><td><code>~/.local/bin</code> isn't on your <code>PATH</code>. Add it, or set <code>NIGHTOWL_INSTALL_DIR</code>.</td></tr>
   <tr><td>Policy error mentioning an unknown key</td><td>Typos are errors on purpose. Run <code>nightowl policy validate</code> to see which line.</td></tr>

@@ -36,7 +36,7 @@ public static class ProjectDetector
         ["pubspec.lock"] = "Pub",
     };
 
-    internal static readonly Dictionary<string, string> ExtensionLanguages = new(StringComparer.OrdinalIgnoreCase)
+    public static readonly Dictionary<string, string> ExtensionLanguages = new(StringComparer.OrdinalIgnoreCase)
     {
         [".cs"] = "csharp", [".js"] = "javascript", [".ts"] = "typescript", [".tsx"] = "typescript",
         [".py"] = "python", [".go"] = "go", [".java"] = "java", [".kt"] = "kotlin", [".rb"] = "ruby",
@@ -49,7 +49,7 @@ public static class ProjectDetector
         ".git", "node_modules", "bin", "obj", ".venv", "venv", "__pycache__", "target", "dist", "build", ".nightowl",
     };
 
-    public static ProjectProfile Detect(string rootPath)
+    public static ProjectProfile Detect(string rootPath, IReadOnlyList<string>? excluded = null)
     {
         var ecosystems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var languages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -57,7 +57,7 @@ public static class ProjectDetector
         var containers = false;
         var iac = false;
 
-        foreach (var file in EnumerateFiles(rootPath))
+        foreach (var file in EnumerateFiles(rootPath, excluded))
         {
             var name = System.IO.Path.GetFileName(file);
             var extension = System.IO.Path.GetExtension(file);
@@ -88,8 +88,11 @@ public static class ProjectDetector
     }
 
     /// <summary>Every file under <paramref name="root"/>, skipping dependency, build and VCS directories.</summary>
-    public static IEnumerable<string> EnumerateFiles(string root)
+    public static IEnumerable<string> EnumerateFiles(string root, IReadOnlyList<string>? excluded = null)
     {
+        var skipped = excluded is { Count: > 0 }
+            ? excluded.Select(p => System.IO.Path.GetFullPath(System.IO.Path.Combine(root, p))).ToHashSet(StringComparer.Ordinal)
+            : null;
         var pending = new Stack<string>();
         pending.Push(root);
         while (pending.Count > 0)
@@ -113,7 +116,8 @@ public static class ProjectDetector
 
             foreach (var subdirectory in subdirectories)
             {
-                if (!SkippedDirectories.Contains(System.IO.Path.GetFileName(subdirectory)))
+                if (!SkippedDirectories.Contains(System.IO.Path.GetFileName(subdirectory))
+                    && skipped?.Contains(System.IO.Path.GetFullPath(subdirectory)) != true)
                 {
                     pending.Push(subdirectory);
                 }

@@ -32,6 +32,9 @@ public sealed class ScanContext
     public required string WorkDirectory { get; init; }
     public required ProjectProfile Profile { get; init; }
 
+    /// <summary>Root-relative paths git ignores (build output, dependencies, caches). Engines skip them.</summary>
+    public IReadOnlyList<string> Excluded { get; init; } = [];
+
     /// <summary>Set by the SBOM engine; read by license and vulnerability engines.</summary>
     public SoftwareBillOfMaterials? Sbom { get; set; }
 
@@ -43,7 +46,8 @@ public sealed record EngineResult(
     string Engine,
     IReadOnlyList<Finding> Findings,
     TimeSpan Duration,
-    string? Error = null)
+    string? Error = null,
+    string? Note = null)
 {
     public bool Succeeded => Error is null;
 

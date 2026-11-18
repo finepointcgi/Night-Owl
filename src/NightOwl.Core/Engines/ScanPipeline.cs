@@ -14,6 +14,21 @@ public sealed class ScanPipeline(IEnumerable<IEngine> engines, EngineManifest ma
     /// <summary>The SBOM produced during the last run, if an SBOM engine ran. Saved for continuous monitoring.</summary>
     public Sbom.SoftwareBillOfMaterials? Sbom { get; private set; }
 
+    /// <summary>Runs one engine and says so every 30 seconds while it works, so a long scan never looks hung.</summary>
+    private static async Task<EngineResult> RunWithHeartbeatAsync(IEngine engine, ScanContext context, IProgress<string>? progress, CancellationToken cancellationToken)
+    {
+        var task = engine.RunAsync(context, cancellationToken);
+        var waited = TimeSpan.Zero;
+        var interval = TimeSpan.FromSeconds(30);
+        while (progress is not null && await Task.WhenAny(task, Task.Delay(interval, cancellationToken)) != task)
+        {
+            waited += interval;
+            progress.Report($"  still running {engine.Name} ({waited.TotalSeconds:0}s)...");
+        }
+
+        return await task;
+    }
+
     public async Task<ScanReport> RunAsync(string rootPath, IProgress<string>? progress, CancellationToken cancellationToken)
     {
         var started = DateTimeOffset.UtcNow;
@@ -23,8 +38,13 @@ public sealed class ScanPipeline(IEnumerable<IEngine> engines, EngineManifest ma
 
         try
         {
-            var context = new ScanContext { RootPath = root, WorkDirectory = work, Profile = ProjectDetector.Detect(root) };
+            var excluded = GitIgnored.Find(root);
+            var context = new ScanContext { RootPath = root, WorkDirectory = work, Profile = ProjectDetector.Detect(root, excluded), Excluded = excluded };
             progress?.Report($"Detected: {Describe(context.Profile)}");
+            if (excluded.Count > 0)
+            {
+                progress?.Report($"Skipping {excluded.Count} path(s) that git ignores (build output, dependencies, caches)");
+            }
 
             var runs = new List<EngineRun>();
             var findings = new List<Finding>();
@@ -41,14 +61,18 @@ public sealed class ScanPipeline(IEnumerable<IEngine> engines, EngineManifest ma
                 EngineResult result;
                 try
                 {
-                    result = await engine.RunAsync(context, cancellationToken);
+                    result = await RunWithHeartbeatAsync(engine, context, progress, cancellationToken);
                 }
                 catch (Exception e) when (e is not OperationCanceledException)
                 {
                     result = EngineResult.Failed(engine.Name, e.Message, TimeSpan.Zero);
                 }
 
-                runs.Add(new EngineRun(engine.Name, version, result.Succeeded, result.Duration.TotalSeconds, result.Error));
+                runs.Add(new EngineRun(engine.Name, version, result.Succeeded, result.Duration.TotalSeconds, result.Error, result.Note));
+                if (result.Note is not null)
+                {
+                    progress?.Report($"  note ({engine.Name}): {result.Note}");
+                }
                 findings.AddRange(result.Findings);
             }
 

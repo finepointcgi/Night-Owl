@@ -23,12 +23,12 @@ public sealed partial class TrivyImageEngine(ToolRunner runner, IReadOnlyList<st
     public int Order => 55;
 
     public bool AppliesTo(ScanContext context) =>
-        extraImages is { Count: > 0 } || (context.Profile.HasContainers && FindBaseImages(context.RootPath).Count > 0);
+        extraImages is { Count: > 0 } || (context.Profile.HasContainers && FindBaseImages(context.RootPath, context.Excluded).Count > 0);
 
     public async Task<EngineResult> RunAsync(ScanContext context, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
-        var targets = FindBaseImages(context.RootPath)
+        var targets = FindBaseImages(context.RootPath, context.Excluded)
             .Concat((extraImages ?? []).Select(i => new ImageTarget(i, null, null)))
             .DistinctBy(t => t.Reference)
             .ToList();
@@ -118,10 +118,10 @@ public sealed partial class TrivyImageEngine(ToolRunner runner, IReadOnlyList<st
     /// The final-stage base image of each Dockerfile. Skips build-stage aliases and scratch, and
     /// resolves ${ARG} references from ARG defaults declared before FROM. Unresolvable ones are skipped.
     /// </summary>
-    public static IReadOnlyList<ImageTarget> FindBaseImages(string root)
+    public static IReadOnlyList<ImageTarget> FindBaseImages(string root, IReadOnlyList<string>? excluded = null)
     {
         var targets = new List<ImageTarget>();
-        foreach (var file in ProjectDetector.EnumerateFiles(root))
+        foreach (var file in ProjectDetector.EnumerateFiles(root, excluded))
         {
             var name = Path.GetFileName(file);
             if (!name.Equals("Dockerfile", StringComparison.OrdinalIgnoreCase) && !name.EndsWith(".dockerfile", StringComparison.OrdinalIgnoreCase)

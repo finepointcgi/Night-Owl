@@ -20,7 +20,7 @@ public sealed class TrivyIacEngine(ToolRunner runner) : IEngine
     public int Order => 50;
 
     public bool AppliesTo(ScanContext context) =>
-        context.Profile.HasInfrastructureAsCode || context.Profile.HasContainers || IacDetector.HasIacFiles(context.RootPath);
+        context.Profile.HasInfrastructureAsCode || context.Profile.HasContainers || IacDetector.HasIacFiles(context.RootPath, context.Excluded);
 
     public async Task<EngineResult> RunAsync(ScanContext context, CancellationToken cancellationToken)
     {
@@ -28,7 +28,7 @@ public sealed class TrivyIacEngine(ToolRunner runner) : IEngine
         var output = await runner.RunAsync(
             Name,
             ["config", "--skip-check-update", "--format", "sarif", "--output", $"{ToolRunner.WorkToken}/{ReportFile}",
-                "--quiet", "--exit-code", "0", ToolRunner.SourceToken],
+                "--quiet", "--exit-code", "0", .. Exclusions.Trivy(context.Excluded, context.RootPath, ToolRunner.SourceToken), ToolRunner.SourceToken],
             context.RootPath, context.WorkDirectory, TimeSpan.FromMinutes(15), cancellationToken,
             new Dictionary<string, string> { ["HOME"] = "/tmp" });
 
@@ -75,9 +75,9 @@ public static class IacDetector
     private const int PeekBytes = 4096;
     private const long MaxFileSize = 2 * 1024 * 1024;
 
-    public static bool HasIacFiles(string root)
+    public static bool HasIacFiles(string root, IReadOnlyList<string>? excluded = null)
     {
-        foreach (var file in ProjectDetector.EnumerateFiles(root))
+        foreach (var file in ProjectDetector.EnumerateFiles(root, excluded))
         {
             var name = Path.GetFileName(file);
             if (name is "Chart.yaml" or "docker-compose.yml" or "docker-compose.yaml" or "compose.yaml")
