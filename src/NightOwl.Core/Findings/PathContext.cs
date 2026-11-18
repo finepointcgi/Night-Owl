@@ -63,7 +63,9 @@ public static class PathContext
         var file = segments[^1];
 
         if (directories.Any(VendoredDirectories.Contains)) { return FindingContext.Vendored; }
-        if (directories.Any(GeneratedDirectories.Contains) || GeneratedSuffixes.Any(s => file.EndsWith(s, StringComparison.OrdinalIgnoreCase))) { return FindingContext.Generated; }
+        // Entity Framework migrations are produced by `dotnet ef migrations add`, and are near-copies by design.
+        var efMigration = file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && directories.Any(d => d.Equals("Migrations", StringComparison.Ordinal));
+        if (efMigration || directories.Any(GeneratedDirectories.Contains) || GeneratedSuffixes.Any(s => file.EndsWith(s, StringComparison.OrdinalIgnoreCase))) { return FindingContext.Generated; }
         if (directories.Any(TestDirectories.Contains) || IsTestFile(file)) { return FindingContext.Test; }
         if (directories.Any(ExampleDirectories.Contains)) { return FindingContext.Example; }
         if (directories.Any(DocsDirectories.Contains) || DocsExtensions.Any(e => file.EndsWith(e, StringComparison.OrdinalIgnoreCase))) { return FindingContext.Docs; }

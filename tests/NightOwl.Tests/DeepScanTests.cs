@@ -56,4 +56,33 @@ public class DeepScanTests
         Assert.Contains("(image alpine:3.18.0)", finding.Title);
         Assert.NotEqual(finding.Id, other.Id); // same package in another image is its own finding
     }
+
+    [Fact]
+    public void Many_image_vulnerabilities_fold_into_one_update_finding()
+    {
+        var vulns = string.Join(",", Enumerable.Range(1, 6).Select(n =>
+            $$"""{"VulnerabilityID":"CVE-2025-{{n}}","PkgName":"pkg{{n % 2}}","InstalledVersion":"1.0","FixedVersion":"1.1","Severity":"{{(n == 3 ? "CRITICAL" : "HIGH")}}","Title":"t"}"""));
+        var json = $$"""{"Results":[{"Type":"debian","Vulnerabilities":[{{vulns}}]}]}""";
+        var target = new ImageTarget("postgres:17", "deploy/Dockerfile", 3);
+
+        var parsed = TrivyImageEngine.Parse(json, target, "trivy-image");
+        var grouped = Assert.Single(TrivyImageEngine.GroupIfMany(parsed, target, "trivy-image"));
+
+        Assert.Equal(6, parsed.Count);
+        Assert.Equal(Severity.Critical, grouped.Severity);
+        Assert.Equal("image/outdated-base", grouped.RuleId);
+        Assert.Equal(6, grouped.Aliases.Count);
+        Assert.Contains("CVE-2025-3", grouped.Aliases);
+        Assert.Equal("deploy/Dockerfile", grouped.Location!.Path);
+        Assert.Contains("postgres:17", grouped.Title);
+        Assert.Contains("6 known vulnerabilities", grouped.Title);
+    }
+
+    [Fact]
+    public void A_few_image_vulnerabilities_stay_separate()
+    {
+        const string json = """{"Results":[{"Type":"alpine","Vulnerabilities":[{"VulnerabilityID":"CVE-1","PkgName":"a","InstalledVersion":"1","Severity":"HIGH"},{"VulnerabilityID":"CVE-2","PkgName":"b","InstalledVersion":"1","Severity":"HIGH"}]}]}""";
+        var target = new ImageTarget("alpine:3", "Dockerfile", 1);
+        Assert.Equal(2, TrivyImageEngine.GroupIfMany(TrivyImageEngine.Parse(json, target, "trivy-image"), target, "trivy-image").Count);
+    }
 }

@@ -96,4 +96,15 @@ public class IgnoredPathTests : IDisposable
         Assert.Contains(@"/a\.b(?:/|$)", toml);
         Assert.Null(Exclusions.GitleaksConfig(["it's'''bad"], "/work/app"));
     }
+
+    [Fact]
+    public void Containers_are_tracked_while_running_and_cleanup_is_idempotent()
+    {
+        ToolRunner.TrackContainer("nightowl-test-aaa");
+        Assert.Contains("nightowl-test-aaa", ToolRunner.LiveContainers.Keys);
+
+        ToolRunner.RemoveLiveContainers(); // docker may be absent here; it must not throw
+        Assert.Empty(ToolRunner.LiveContainers);
+        ToolRunner.RemoveLiveContainers();
+    }
 }

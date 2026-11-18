@@ -33,6 +33,8 @@ public sealed class FindingContextTests
     [InlineData("static/app.min.js", FindingContext.Generated)]
     [InlineData("api/user.pb.go", FindingContext.Generated)]
     [InlineData("dist/bundle.js", FindingContext.Generated)]
+    [InlineData("src/App.Migrations.Sqlite/Migrations/20240101_Init.cs", FindingContext.Generated)]
+    [InlineData("db/migrations/001.sql", FindingContext.Production)]    // only EF's C# migrations are treated as generated
     [InlineData("node_modules/lodash/index.js", FindingContext.Vendored)]
     [InlineData("vendor/github.com/x/y/y.go", FindingContext.Vendored)]
     [InlineData("vendor/tests/a.py", FindingContext.Vendored)]       // vendored wins over test

@@ -10,9 +10,19 @@ public static class CycloneDxParser
 {
     private static readonly Dictionary<string, string> PurlEcosystems = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["npm"] = "npm", ["pypi"] = "PyPI", ["golang"] = "Go", ["cargo"] = "crates.io", ["maven"] = "Maven",
-        ["nuget"] = "NuGet", ["gem"] = "RubyGems", ["composer"] = "Packagist", ["pub"] = "Pub",
-        ["deb"] = "Debian", ["apk"] = "Alpine", ["rpm"] = "RPM", ["github"] = "GitHub Actions",
+        ["npm"] = "npm",
+        ["pypi"] = "PyPI",
+        ["golang"] = "Go",
+        ["cargo"] = "crates.io",
+        ["maven"] = "Maven",
+        ["nuget"] = "NuGet",
+        ["gem"] = "RubyGems",
+        ["composer"] = "Packagist",
+        ["pub"] = "Pub",
+        ["deb"] = "Debian",
+        ["apk"] = "Alpine",
+        ["rpm"] = "RPM",
+        ["github"] = "GitHub Actions",
     };
 
     public static SoftwareBillOfMaterials Parse(string json, string sourcePath)

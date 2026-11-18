@@ -68,6 +68,7 @@
 
 <h2 id="containers">Container images</h2>
 <p>Night Owl finds the final-stage base image of every Dockerfile (resolving <code>ARG</code> defaults, skipping build stages and <code>scratch</code>) and scans it with Trivy, plus any image you pass with <code>--image</code>. Only vulnerabilities that have a fix are reported unless you pass <code>--image-include-unfixed</code>. Trivy's vulnerability database is cached in <code>~/.nightowl/cache</code>.</p>
+<p><strong>One stale image, one finding.</strong> A base image that is months old can bring dozens of CVEs that all have the same fix. When an image has five or more, Night Owl reports a single <code>image/outdated-base</code> finding at the worst severity, with every CVE id listed as an alias and the affected packages in the description. Fewer than five stay as separate findings. To act on it, rebuild on a current tag of the image.</p>
 
 <h2 id="iac">Infrastructure as code</h2>
 <p>Trivy runs whenever the project has Terraform, a Dockerfile, a Helm chart or a compose file, or YAML/JSON that looks like Kubernetes, CloudFormation or ARM (detected by peeking at file contents). It uses the checks built into the pinned Trivy version, so results change only when the engine manifest moves Trivy forward, and the scan works offline.</p>
