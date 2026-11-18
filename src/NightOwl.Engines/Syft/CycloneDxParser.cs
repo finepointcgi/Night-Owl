@@ -19,11 +19,17 @@ public static class CycloneDxParser
     {
         using var document = JsonDocument.Parse(json);
         var components = new List<SbomComponent>();
+        var root = JsonGuards.RootObject(document, "syft (CycloneDX)");
 
-        if (document.RootElement.TryGetProperty("components", out var list) && list.ValueKind == JsonValueKind.Array)
+        if (root.TryGetProperty("components", out var list) && list.ValueKind == JsonValueKind.Array)
         {
             foreach (var component in list.EnumerateArray())
             {
+                if (!JsonGuards.IsObject(component))
+                {
+                    continue;
+                }
+
                 var purl = GetString(component, "purl");
                 var name = GetString(component, "name");
                 if (purl is null || name is null)

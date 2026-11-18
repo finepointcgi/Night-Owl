@@ -34,7 +34,7 @@ Prioritized by (impact on real users) ÷ (effort). Status is checked against the
 
 | # | Item | Notes |
 |---|------|-------|
-| 13 | Adapter robustness | Every engine failure already degrades to a warning; add per-engine timeouts and malformed-output tests with real captured outputs. |
+| 13 | Adapter robustness | Every engine failure degrades to a warning; every engine run has a timeout, and image pull/build (which runs before it) is now bounded too (10 min, then the engine fails with a clear message instead of stalling the scan); malformed-output corpus tests pin every parser's contract: return results, or fail with JsonException/InvalidDataException — never a raw runtime exception from a property access. Left: grow the corpus with real captured outputs from the field. |
 | 14 | Performance | Run independent engines in parallel; skip unchanged directories using git; cache per-engine results keyed by content hash. |
 | 15 | Packaging | Homebrew tap and Scoop manifest first (small); apt later. Needs a stable release name after the rename. |
 | 16 | Docs | Table of which engine covers which language, and how findings merge. Can be generated from `engines.json` and the rule packs. |

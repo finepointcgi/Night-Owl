@@ -12,35 +12,36 @@ public static class OsvResultParser
     {
         using var document = JsonDocument.Parse(json);
         var findings = new List<Finding>();
-        if (!document.RootElement.TryGetProperty("results", out var results))
-        {
-            return findings;
-        }
+        var root = JsonGuards.RootObject(document, engine);
 
-        foreach (var result in results.EnumerateArray())
+        foreach (var result in JsonGuards.Array(root, "results"))
         {
-            var sourceFile = result.TryGetProperty("source", out var source) && Str(source, "path") is { } p
-                ? ToolRunner.ToProjectPath(p, sourcePath)
-                : null;
-
-            if (!result.TryGetProperty("packages", out var packages))
+            if (!JsonGuards.IsObject(result))
             {
                 continue;
             }
 
-            foreach (var entry in packages.EnumerateArray())
-            {
-                var pkg = entry.GetProperty("package");
-                var package = new PackageRef(Str(pkg, "name") ?? "", Str(pkg, "version") ?? "", Str(pkg, "ecosystem") ?? "");
-                var groupSeverity = GroupSeverities(entry);
+            var sourceFile = result.TryGetProperty("source", out var source) && Str(source, "path") is { } p
+                ? ToolRunner.ToProjectPath(p, sourcePath)
+                : null;
 
-                if (!entry.TryGetProperty("vulnerabilities", out var vulnerabilities))
+            foreach (var entry in JsonGuards.Array(result, "packages"))
+            {
+                if (!JsonGuards.IsObject(entry) || !entry.TryGetProperty("package", out var pkg) || pkg.ValueKind != JsonValueKind.Object)
                 {
                     continue;
                 }
 
-                foreach (var vulnerability in vulnerabilities.EnumerateArray())
+                var package = new PackageRef(Str(pkg, "name") ?? "", Str(pkg, "version") ?? "", Str(pkg, "ecosystem") ?? "");
+                var groupSeverity = GroupSeverities(entry);
+
+                foreach (var vulnerability in JsonGuards.Array(entry, "vulnerabilities"))
                 {
+                    if (!JsonGuards.IsObject(vulnerability))
+                    {
+                        continue;
+                    }
+
                     var id = Str(vulnerability, "id") ?? "UNKNOWN";
                     var aliases = Strings(vulnerability, "aliases");
                     var severity = groupSeverity.GetValueOrDefault(id, Severity.Unknown);
@@ -75,12 +76,7 @@ public static class OsvResultParser
     private static Dictionary<string, Severity> GroupSeverities(JsonElement entry)
     {
         var map = new Dictionary<string, Severity>(StringComparer.OrdinalIgnoreCase);
-        if (!entry.TryGetProperty("groups", out var groups))
-        {
-            return map;
-        }
-
-        foreach (var group in groups.EnumerateArray())
+        foreach (var group in JsonGuards.Array(entry, "groups").Where(JsonGuards.IsObject))
         {
             var severity = Str(group, "max_severity") is { } score
                 && double.TryParse(score, NumberStyles.Float, CultureInfo.InvariantCulture, out var cvss)
@@ -120,12 +116,7 @@ public static class OsvResultParser
     private static List<string> FixedVersions(JsonElement vulnerability, PackageRef package)
     {
         var fixes = new List<string>();
-        if (!vulnerability.TryGetProperty("affected", out var affected))
-        {
-            return fixes;
-        }
-
-        foreach (var item in affected.EnumerateArray())
+        foreach (var item in JsonGuards.Array(vulnerability, "affected").Where(JsonGuards.IsObject))
         {
             if (item.TryGetProperty("package", out var pkg)
                 && !string.Equals(Str(pkg, "name"), package.Name, StringComparison.OrdinalIgnoreCase))
@@ -133,19 +124,9 @@ public static class OsvResultParser
                 continue;
             }
 
-            if (!item.TryGetProperty("ranges", out var ranges))
+            foreach (var range in JsonGuards.Array(item, "ranges"))
             {
-                continue;
-            }
-
-            foreach (var range in ranges.EnumerateArray())
-            {
-                if (!range.TryGetProperty("events", out var events))
-                {
-                    continue;
-                }
-
-                foreach (var e in events.EnumerateArray())
+                foreach (var e in JsonGuards.Array(range, "events"))
                 {
                     if (Str(e, "fixed") is { } fixedVersion)
                     {

@@ -18,6 +18,12 @@ public static class EngineImages
 {
     public const string LocalPrefix = "nightowl-engines/";
     private const string ResourcePrefix = "engine-images/";
+
+    /// <summary>
+    /// Bound on one docker pull/build/inspect. These run before the engine's own timeout
+    /// starts, so without a bound here a wedged registry stalls the whole scan forever.
+    /// </summary>
+    internal static readonly TimeSpan ImageOperationTimeout = TimeSpan.FromMinutes(10);
     private static readonly ConcurrentDictionary<string, Task<string>> Resolved = new(StringComparer.Ordinal);
 
     public static Task<string> ResolveAsync(EngineSpec spec, CancellationToken cancellationToken) =>
@@ -122,12 +128,23 @@ public static class EngineImages
             start.ArgumentList.Add(arg);
         }
 
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(ImageOperationTimeout);
         try
         {
             using var process = Process.Start(start)!;
-            var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
+            var stdout = process.StandardOutput.ReadToEndAsync(timeout.Token);
+            var stderr = process.StandardError.ReadToEndAsync(timeout.Token);
+            try
+            {
+                await process.WaitForExitAsync(timeout.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                KillQuietly(process);
+                throw DockerTimeout(args, cancellationToken);
+            }
+
             return (process.ExitCode, await stdout + await stderr);
         }
         catch (System.ComponentModel.Win32Exception)
@@ -144,12 +161,23 @@ public static class EngineImages
             start.ArgumentList.Add(arg);
         }
 
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(ImageOperationTimeout);
         try
         {
             using var process = Process.Start(start)!;
-            _ = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            _ = process.StandardError.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
+            _ = process.StandardOutput.ReadToEndAsync(timeout.Token);
+            _ = process.StandardError.ReadToEndAsync(timeout.Token);
+            try
+            {
+                await process.WaitForExitAsync(timeout.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                KillQuietly(process);
+                throw DockerTimeout(args, cancellationToken);
+            }
+
             return process.ExitCode;
         }
         catch (System.ComponentModel.Win32Exception)
@@ -157,4 +185,24 @@ public static class EngineImages
             return -1; // docker is not installed.
         }
     }
+
+    /// <summary>The exception for a docker operation that hit the bound: the caller's own cancellation rethrows as-is.</summary>
+
+    /// <summary>Kill on the timeout path, tolerating the race where the process exited on its own first.</summary>
+    private static void KillQuietly(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+        }
+        catch (InvalidOperationException)
+        {
+            // Already exited: the timeout exception below is the real story.
+        }
+    }
+
+    private static Exception DockerTimeout(string[] args, CancellationToken callerToken) =>
+        callerToken.IsCancellationRequested
+            ? new OperationCanceledException(callerToken)
+            : new TimeoutException($"docker {args.FirstOrDefault() ?? "command"} did not finish within {ImageOperationTimeout.TotalMinutes:0} minutes; the registry or daemon may be wedged.");
 }

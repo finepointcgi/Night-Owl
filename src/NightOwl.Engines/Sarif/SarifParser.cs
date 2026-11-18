@@ -21,20 +21,17 @@ public static class SarifParser
         normalizeRuleId ??= id => id;
         using var document = JsonDocument.Parse(json);
         var findings = new List<Finding>();
-        if (!document.RootElement.TryGetProperty("runs", out var runs))
-        {
-            return findings;
-        }
+        var root = JsonGuards.RootObject(document, engine);
 
-        foreach (var run in runs.EnumerateArray())
+        foreach (var run in JsonGuards.Array(root, "runs"))
         {
-            var rules = ReadRules(run);
-            if (!run.TryGetProperty("results", out var results))
+            if (!JsonGuards.IsObject(run))
             {
                 continue;
             }
 
-            findings.AddRange(results.EnumerateArray().Select(result => ToFinding(result, rules, sourcePath, engine, category, normalizeRuleId)));
+            var rules = ReadRules(run);
+            findings.AddRange(JsonGuards.Array(run, "results").Where(JsonGuards.IsObject).Select(result => ToFinding(result, rules, sourcePath, engine, category, normalizeRuleId)));
         }
 
         return findings;
@@ -71,13 +68,13 @@ public static class SarifParser
     private static Dictionary<string, RuleInfo> ReadRules(JsonElement run)
     {
         var rules = new Dictionary<string, RuleInfo>(StringComparer.Ordinal);
-        if (!run.TryGetProperty("tool", out var tool) || !tool.TryGetProperty("driver", out var driver)
-            || !driver.TryGetProperty("rules", out var list))
+        if (!run.TryGetProperty("tool", out var tool) || !JsonGuards.IsObject(tool)
+            || !tool.TryGetProperty("driver", out var driver) || !JsonGuards.IsObject(driver))
         {
             return rules;
         }
 
-        foreach (var rule in list.EnumerateArray())
+        foreach (var rule in JsonGuards.Array(driver, "rules").Where(JsonGuards.IsObject))
         {
             if (Str(rule, "id") is not { } id)
             {
@@ -104,7 +101,7 @@ public static class SarifParser
     {
         double? securitySeverity = null;
         var cwes = new List<string>();
-        if (!rule.TryGetProperty("properties", out var properties))
+        if (!rule.TryGetProperty("properties", out var properties) || !JsonGuards.IsObject(properties))
         {
             return (null, cwes);
         }
@@ -122,7 +119,8 @@ public static class SarifParser
         if (properties.TryGetProperty("tags", out var tags) && tags.ValueKind == JsonValueKind.Array)
         {
             cwes.AddRange(tags.EnumerateArray()
-                .Select(t => t.GetString() ?? "")
+                .Where(t => t.ValueKind == JsonValueKind.String)
+                .Select(t => t.GetString()!)
                 .Where(t => t.StartsWith("CWE-", StringComparison.OrdinalIgnoreCase))
                 .Select(t => t.Split(':')[0].Trim()));
         }
@@ -149,8 +147,9 @@ public static class SarifParser
 
     private static (string? Path, int? Line, string? Snippet) ReadLocation(JsonElement result, string sourcePath)
     {
-        if (!result.TryGetProperty("locations", out var locations) || locations.GetArrayLength() == 0
-            || !locations[0].TryGetProperty("physicalLocation", out var physical))
+        if (!result.TryGetProperty("locations", out var locations) || locations.ValueKind != JsonValueKind.Array || locations.GetArrayLength() == 0
+            || !JsonGuards.IsObject(locations[0]) || !locations[0].TryGetProperty("physicalLocation", out var physical)
+            || !JsonGuards.IsObject(physical))
         {
             return (null, null, null);
         }
@@ -158,7 +157,7 @@ public static class SarifParser
         var uri = physical.TryGetProperty("artifactLocation", out var artifact) ? Str(artifact, "uri") : null;
         int? line = null;
         string? snippet = null;
-        if (physical.TryGetProperty("region", out var region))
+        if (physical.TryGetProperty("region", out var region) && JsonGuards.IsObject(region))
         {
             if (region.TryGetProperty("startLine", out var start) && start.TryGetInt32(out var l))
             {
