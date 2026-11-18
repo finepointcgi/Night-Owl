@@ -3,6 +3,7 @@
 @inject ReportArchive Archive
 @inject ScanHistory History
 @inject ScanVault Vault
+@inject NightOwl.Web.StigStore Stigs
 
 <PageTitle>@(_report is null ? "Not found" : System.IO.Path.GetFileName(_report.Project)) · Night Owl</PageTitle>
 
@@ -29,6 +30,7 @@
     <a href="@Url(null)" class="@(Tab == "summary" ? "active" : "")">Summary</a>
     <a href="@Url("findings")" class="@(Tab == "findings" ? "active" : "")">Findings <span class="pill">@_report.Findings.Count</span></a>
     <a href="@Url("scans")" class="@(Tab == "scans" ? "active" : "")">Scans <span class="pill">@_scans.Count</span></a>
+    <a href="@Url("export")" class="@(Tab == "export" ? "active" : "")">Export</a>
 </nav>
 
 @if (_viewingOlder)
@@ -127,6 +129,28 @@
             <li class="@(e.Succeeded ? "ok" : "bad")"><b>@e.Engine</b> <span class="muted">@e.Version · @e.Seconds.ToString("0.0")s</span>@if (e.Error is not null) { <div>@e.Error</div> } @if (e.Note is not null) { <div class="muted">@e.Note</div> }</li>
         }
     </ul>
+</div>
+}
+
+@if (Tab == "export")
+{
+<div class="card">
+    <h3>Export @(_viewingOlder ? "this scan" : "the latest scan")</h3>
+    <table>
+        <tbody>
+            @foreach (var (format, label, hint) in NightOwl.Web.ExportEndpoints.Formats)
+            {
+                <tr>
+                    <td><b>@label</b></td>
+                    <td class="muted">@hint</td>
+                    <td>
+                        @if (format == "ckl" && _stig is null) { <a href="/exports">Import a STIG</a> }
+                        else { <a class="btn" href="@($"/export/{Key}/{format}{ExportQuery(format)}")" download>Download</a> }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
 </div>
 }
 
@@ -250,6 +274,15 @@
     private List<ScanInfo> _scans = [];
     private string? _currentId;
     private bool _viewingOlder;
+    private string? _stig;
+
+    private string ExportQuery(string format)
+    {
+        var query = new List<string>();
+        if (_viewingOlder) { query.Add("scan=" + _currentId); }
+        if (format == "ckl" && _stig is not null) { query.Add("stig=" + Uri.EscapeDataString(_stig)); }
+        return query.Count == 0 ? "" : "?" + string.Join("&", query);
+    }
     private string? ScanLabel => _scans.FirstOrDefault(s => s.Id == _currentId)?.Label;
 
     private string Url(string? tab)
@@ -260,7 +293,7 @@
         return $"/project/{Key}" + (query.Count == 0 ? "" : "?" + string.Join("&", query));
     }
 
-    private string Tab => TabParam == "scans" ? "scans" : TabParam == "findings" || AiFilter is not null || SeverityFilter is not null || CategoryFilter is not null || Query is not null ? "findings" : "summary";
+    private string Tab => TabParam == "export" ? "export" : TabParam == "scans" ? "scans" : TabParam == "findings" || AiFilter is not null || SeverityFilter is not null || CategoryFilter is not null || Query is not null ? "findings" : "summary";
     private List<Finding> _open = [];
     private IReadOnlyDictionary<Severity, int> _counts = new Dictionary<Severity, int>();
     private IReadOnlyList<(string, int)> _byCategory = [];
@@ -278,6 +311,7 @@
             return;
         }
 
+        _stig = Stigs.List().FirstOrDefault();
         _scans = Vault.List(latest.Project).ToList();
         if (_scans.Count == 0)
         {

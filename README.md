@@ -24,8 +24,10 @@ required: engines run from their pinned container images (or from a local instal
 `--container` forces the pinned image). Images Night Owl builds itself are built automatically
 the first time they're needed.
 
-The dashboard (`dotnet run --project src/NightOwl.Web`) shows every scanned project, lets you
-triage findings, and re-checks dependencies for new advisories every day while it runs.
+The dashboard (`dotnet run --project src/NightOwl.Web`) gives you an overview across projects, each
+project's scan history (reopen, label and compare scans), tags, triage, and downloads of HTML, CSV,
+JSON, SARIF and SBOM reports plus DISA STIG checklists (`.ckl`, built from a STIG file you import).
+It also re-checks dependencies for new advisories every day while it runs.
 
 ```
 nightowl scan [path] [--format table|json|sarif|markdown|codeclimate] [--output file]

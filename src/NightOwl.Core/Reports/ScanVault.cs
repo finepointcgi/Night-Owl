@@ -59,7 +59,7 @@ public sealed class ScanVault(string homeDirectory)
             }
         }
 
-        return scans.OrderByDescending(s => s.At).ToList();
+        return scans.OrderByDescending(s => s.Id, StringComparer.Ordinal).ToList();
     }
 
     public ScanReport? Load(string project, string id)

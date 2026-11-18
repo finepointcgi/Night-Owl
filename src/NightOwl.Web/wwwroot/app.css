@@ -197,3 +197,8 @@ td.actions { white-space: nowrap; display: flex; gap: 12px; flex-wrap: wrap; fon
 .tag-x { border: 0; background: none; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0 0 2px; opacity: .7; }
 a.tag { text-decoration: none; } a.tag.on { background: var(--accent); color: #fff; }
 .tag-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+
+/* ---- Exports ---- */
+.export-links { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: .85rem; } .export-links .disabled { color: var(--muted); text-decoration: line-through; cursor: help; }
+.stig-list { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 6px; }
+label.btn { cursor: pointer; }

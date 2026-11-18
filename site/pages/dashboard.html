@@ -1,0 +1,92 @@
+<h1>The dashboard</h1>
+<p class="lead">A local web app over every scan you have run: an overview across projects, the history of each project, tags, and downloads of reports and STIG checklists. It reads the same files the command line writes, so there is nothing to set up.</p>
+
+<h2 id="start">Starting it</h2>
+<pre><code>dotnet run --project src/NightOwl.Web</code></pre>
+<p>It listens on <code>http://localhost:5212</code> and needs no login there. To expose it on a network address you must set <code>NIGHTOWL_DASHBOARD_TOKEN</code>; it refuses to start otherwise (<a href="ci.html#dashboard-token">details</a>). Use <code>--urls http://127.0.0.1:5214</code> to pick another port.</p>
+
+<h2 id="overview">Overview</h2>
+<p>The first screen adds up every project you have scanned on this machine:</p>
+<ul>
+  <li><strong>Counts</strong> of projects, critical and high findings, all open findings, and engines that failed.</li>
+  <li><strong>Open findings by severity</strong> and <strong>by category</strong>.</li>
+  <li><strong>Most common problems</strong> and <strong>packages to update first</strong> across all projects.</li>
+  <li><strong>Projects by risk</strong>, ranked so one critical finding outweighs a pile of low ones, each with a trend line.</li>
+</ul>
+<p>"Open" means a finding still needs attention: not a code-quality metric, and not triaged as a false positive or fixed. The same definition is used everywhere in the dashboard and in exports, so the numbers agree.</p>
+
+<h2 id="projects">Projects and tags</h2>
+<p>The <strong>Projects</strong> page lists every project with its open findings, trend, quality numbers and last scan. Search by name and sort by risk, latest scan or name.</p>
+<p><strong>Tags</strong> group projects by team, environment or release train. Add them on a project page (type, press Enter) or from the command line:</p>
+<pre><code>nightowl scan . --tags prod,payments</code></pre>
+<p>Tags are lower-case, up to 30 characters of letters, digits and <code>. _ : -</code>, at most 10 per project. Click a tag to filter the list. They live in <code>~/.nightowl/tags.json</code>.</p>
+
+<h2 id="project">A project page</h2>
+<table>
+  <tr><th>Tab</th><th>What it shows</th></tr>
+  <tr><td>Summary</td><td>Severity and category charts, code-quality numbers, the trend, the AI review and pen-test details if present, and which engines ran.</td></tr>
+  <tr><td>Findings</td><td>Every finding with filters, and the triage buttons.</td></tr>
+  <tr><td>Scans</td><td>The history of scans. See below.</td></tr>
+  <tr><td>Export</td><td>Downloads for this project.</td></tr>
+</table>
+
+<h2 id="history">Scan history and versions</h2>
+<p>Every scan is kept, not just the latest. On the <strong>Scans</strong> tab you can:</p>
+<ul>
+  <li><strong>Open</strong> an older scan and see the project exactly as it was, with a banner so you don't mistake it for the latest.</li>
+  <li><strong>Label</strong> a scan, for example with the release it belongs to. Click "Add label", or set it when scanning: <code>nightowl scan . --label v1.4.0</code>.</li>
+  <li><strong>Compare</strong> two scans: what is <em>new</em>, what was <em>resolved</em>, what <em>changed</em> severity or triage state, and how much is unchanged. A finding triaged as a false positive counts as resolved.</li>
+</ul>
+<p>The newest 30 scans of each project are kept, plus any scan with a label. Scans are stored as files under <code>~/.nightowl/reports/scans/</code>. Scans made before this feature existed have no history; it starts with the next scan.</p>
+
+<h2 id="exports">Exports</h2>
+<p>The <strong>Exports</strong> page, and each project's Export tab, download a project's latest scan (or an older one you have open):</p>
+<table>
+  <tr><th>Format</th><th>Use it for</th></tr>
+  <tr><td>HTML report</td><td>One self-contained file with no scripts or network use. Open it, email it, or print it to PDF.</td></tr>
+  <tr><td>CSV</td><td>Spreadsheets and audit evidence. One row per finding. Cells that start with <code>=</code>, <code>+</code>, <code>-</code> or <code>@</code> are prefixed with an apostrophe so a spreadsheet can't run them as formulas.</td></tr>
+  <tr><td>JSON</td><td>The full <a href="findings.html#report">scan report</a>.</td></tr>
+  <tr><td>SARIF</td><td>GitHub code scanning and IDEs.</td></tr>
+  <tr><td>SBOM (CycloneDX)</td><td>The component list saved by the project's last scan.</td></tr>
+  <tr><td>STIG checklist</td><td>A <code>.ckl</code> for DISA STIG Viewer. See below.</td></tr>
+</table>
+<p>"All projects (CSV)" combines every project into one file with a Project column, optionally only projects with one tag.</p>
+
+<h2 id="stig">STIG checklists (.ckl)</h2>
+<p>A <strong>STIG</strong> is a DISA security checklist for a kind of system; STIG Viewer opens and fills in checklists as <code>.ckl</code> files. Night Owl builds one from a scan.</p>
+<h3>Set up once</h3>
+<ol>
+  <li>Download the STIG you need from DISA's public STIG library, for example the <em>Application Security and Development</em> STIG. It is a <code>.zip</code>.</li>
+  <li>On the Exports page, choose <strong>Import a STIG</strong> and pick that file (the <code>.zip</code> or the <code>*-xccdf.xml</code> inside it). Night Owl checks that it really is a STIG before keeping it in <code>~/.nightowl/stigs/</code>.</li>
+  <li>Pick it in "STIG for checklists" and download the <code>.ckl</code> for any project.</li>
+</ol>
+<p>Night Owl does <strong>not</strong> bundle STIG content. It reads the rules, ids and wording from the official file you give it, so the checklist always matches the STIG version you chose.</p>
+<h3>What the statuses mean</h3>
+<table>
+  <tr><th>Status</th><th>Meaning</th></tr>
+  <tr><td><strong>Open</strong></td><td>Scan findings clearly bear on what the rule asks. The findings are listed in the Finding Details box, and the comment says the match was automatic.</td></tr>
+  <tr><td><strong>Not Reviewed</strong></td><td>Everything else. A scan finding nothing does <em>not</em> show a control is met, so Night Owl never marks a rule "Not a Finding" on its own.</td></tr>
+</table>
+<h3>How a finding is matched to a rule</h3>
+<p>If a rule's text names a weakness (<code>CWE-89</code>), findings with that CWE match. Otherwise Night Owl looks for the topic in the rule's title, discussion and check text, and matches findings of the same weakness class:</p>
+<table>
+  <tr><th>Topic</th><th>Matches findings about</th></tr>
+  <tr><td>Injection</td><td>SQL, command, code, LDAP, XML and XPath injection (CWE-74, 77, 78, 89, 94 and related)</td></tr>
+  <tr><td>Cross-site scripting</td><td>CWE-79 and relatives</td></tr>
+  <tr><td>Path traversal</td><td>CWE-22 and relatives</td></tr>
+  <tr><td>Embedded credentials</td><td>Hard-coded secrets, and CWE-259 / 321 / 798</td></tr>
+  <tr><td>Weak cryptography, certificate validation</td><td>Broken hashes and ciphers, and disabled TLS validation</td></tr>
+  <tr><td>Known vulnerabilities in components</td><td>Dependency vulnerabilities</td></tr>
+  <tr><td>Buffer overflow, deserialization, XXE, request forgery</td><td>Their CWE classes</td></tr>
+</table>
+<div class="note"><p><strong>Treat it as a head start, not an assessment.</strong> The matching is keyword and weakness-class based, so it can miss a rule that is worded unusually and can occasionally match one too loosely. A person still has to review every rule in STIG Viewer before the checklist is submitted. The file follows the <code>.ckl</code> layout STIG Viewer 2.x reads; if your version objects to it, that is a bug worth reporting.</p></div>
+
+<h2 id="data">Where the dashboard keeps things</h2>
+<table>
+  <tr><th>Path under <code>~/.nightowl</code></th><th>Holds</th></tr>
+  <tr><td><code>reports/&lt;id&gt;.json</code></td><td>The latest report of each project.</td></tr>
+  <tr><td><code>reports/scans/&lt;id&gt;/</code></td><td>Every kept scan, plus <code>labels.json</code>.</td></tr>
+  <tr><td><code>reports/history/&lt;id&gt;.jsonl</code></td><td>The trend numbers.</td></tr>
+  <tr><td><code>tags.json</code></td><td>Project tags.</td></tr>
+  <tr><td><code>stigs/</code></td><td>Imported STIG files.</td></tr>
+</table>
