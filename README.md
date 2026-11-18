@@ -129,7 +129,9 @@ Opt out of automatic checks with `NIGHTOWL_AUTO_UPDATE=0` or `--no-update`.
 - **Automatic fixes.** `nightowl fix` upgrades each vulnerable dependency to the smallest version
   that fixes all of its advisories. It first checks that version against OSV and moves higher if
   the target has advisories of its own. It supports npm (lockfile-only, scripts disabled,
-  `overrides` for transitive dependencies), NuGet, pip `requirements*.txt` pins and Go modules.
+  `overrides` for transitive dependencies), NuGet, pip `requirements*.txt` pins, Go modules and
+  Cargo (`cargo update --precise`, with the `Cargo.toml` requirement edited first when it
+  excludes the fixed version).
   `--pr` commits to a branch and opens a pull request.
 
 ## Tests, examples and docs don't fail the build

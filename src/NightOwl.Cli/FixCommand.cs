@@ -253,6 +253,34 @@ internal static partial class FixCommand
                 return true;
             }
 
+            case "crates.io":
+            {
+                // cargo update --precise syncs Cargo.lock to the fixed version. A direct
+                // dependency whose Cargo.toml requirement excludes that version needs the
+                // requirement edited first, so update every manifest that declares it
+                // (workspace members included); a purely transitive dependency is fixed by
+                // the lockfile pin alone.
+                var manifests = Directory.EnumerateFiles(directory, "Cargo.toml", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true })
+                    .Where(p => !p.Split(Path.DirectorySeparatorChar).Intersect(["target", ".git"]).Any())
+                    .ToList();
+                if (manifests.Count == 0 && !File.Exists(Path.Combine(directory, "Cargo.lock")))
+                {
+                    return false;
+                }
+
+                foreach (var cargoToml in manifests)
+                {
+                    var text = await File.ReadAllTextAsync(cargoToml);
+                    if (CargoManifestEditor.SetVersionRequirement(text, name, version) is { } updated)
+                    {
+                        await File.WriteAllTextAsync(cargoToml, updated);
+                    }
+                }
+
+                Run(directory, "cargo", "update", "-p", name, "--precise", version);
+                return true;
+            }
+
             default:
                 return false;
         }
