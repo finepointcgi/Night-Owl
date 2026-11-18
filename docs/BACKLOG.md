@@ -37,7 +37,7 @@ Prioritized by (impact on real users) ÷ (effort). Status is checked against the
 | 13 | Adapter robustness | Every engine failure already degrades to a warning; add per-engine timeouts and malformed-output tests with real captured outputs. |
 | 14 | Performance | Run independent engines in parallel; skip unchanged directories using git; cache per-engine results keyed by content hash. |
 | 15 | Packaging | Homebrew tap and Scoop manifest first (small); apt later. Needs a stable release name after the rename. |
-| 16 | Docs | Table of which engine covers which language, and how findings merge. Can be generated from `engines.json` and the rule packs. |
+| 16 | Docs | The engine coverage table on the Engines page is generated from `engines.json` (`display`/`covers`/`license` fields beside the version pins; a missing field fails the site build), and the rule catalog is generated from the rule packs. The site check also fails on any unreplaced placeholder. Left: a generated account of how findings merge. |
 
 ## Release engineering
 

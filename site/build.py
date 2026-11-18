@@ -97,6 +97,23 @@ def engine_versions():
     return "<table><tr><th>Engine</th><th>Pinned version</th><th>Container image</th></tr>" + rows + "</table>"
 
 
+def engine_coverage():
+    """The what-covers-what table, from the display/covers/license fields in engines.json.
+
+    Those fields live beside the version pins so adding or removing an engine updates the
+    docs in the same commit; a missing field is a build error, not a silent blank cell.
+    """
+    import json
+    data = json.loads((REPO / "engines/engines.json").read_text(encoding="utf-8"))
+    rows = []
+    for e in data["engines"]:
+        for field in ("display", "covers", "license"):
+            if not e.get(field):
+                raise SystemExit(f"engines.json: engine '{e.get('name')}' is missing '{field}' (needed for the docs coverage table)")
+        rows.append(f"<tr><td>{html.escape(e['display'])}</td><td>{html.escape(e['covers'])}</td><td>{html.escape(e['license'])}</td></tr>")
+    return "<table><tr><th>Engine</th><th>Covers</th><th>License</th></tr>" + "".join(rows) + "</table>"
+
+
 def nav_html(current):
     items = []
     for slug, title, _ in PAGES:
@@ -114,7 +131,7 @@ def build():
     for i, (slug, title, summary) in enumerate(PAGES):
         src = ROOT / "pages" / f"{slug}.html"
         body = src.read_text(encoding="utf-8")
-        body = body.replace("{{RULES}}", rules_tables()).replace("{{ENGINE_VERSIONS}}", engine_versions())
+        body = body.replace("{{RULES}}", rules_tables()).replace("{{ENGINE_VERSIONS}}", engine_versions()).replace("{{ENGINE_COVERAGE}}", engine_coverage())
         prev = nxt = ""
         if i > 0:
             p = PAGES[i - 1]
@@ -132,6 +149,9 @@ def check(names):
     bad = []
     for f in OUT.glob("*.html"):
         text = f.read_text(encoding="utf-8")
+        if re.search(r"\{\{[A-Z_]+\}\}", text):
+            bad.append(f"{f.name}: unreplaced placeholder (a table failed to generate)")
+
         ids = set(re.findall(r'id="([^"]+)"', text))
         for href in re.findall(r'href="([^"]+)"', text):
             if href.startswith(("http://", "https://", "mailto:")):

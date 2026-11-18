@@ -3,6 +3,9 @@
   "engines": [
     {
       "name": "syft",
+      "display": "Syft",
+      "covers": "SBOM (CycloneDX) and licenses",
+      "license": "Apache-2.0",
       "binary": "syft",
       "image": "docker.io/anchore/syft",
       "build": null,
@@ -18,6 +21,9 @@
     },
     {
       "name": "osv-scanner",
+      "display": "OSV-Scanner",
+      "covers": "Known vulnerabilities in dependencies",
+      "license": "Apache-2.0",
       "binary": "osv-scanner",
       "image": "ghcr.io/google/osv-scanner",
       "build": null,
@@ -33,6 +39,9 @@
     },
     {
       "name": "gitleaks",
+      "display": "gitleaks",
+      "covers": "Secrets in current files and git history",
+      "license": "MIT",
       "binary": "gitleaks",
       "image": "ghcr.io/gitleaks/gitleaks",
       "build": null,
@@ -48,6 +57,9 @@
     },
     {
       "name": "opengrep",
+      "display": "Opengrep",
+      "covers": "SAST with Night Owl's rule pack, including taint tracking (C#, JS/TS, Python, Java, Go, C/C++, plus Rust, Kotlin, Ruby, PHP packs)",
+      "license": "LGPL-2.1",
       "binary": "opengrep",
       "image": "nightowl-engines/opengrep",
       "build": "engines/opengrep",
@@ -67,6 +79,9 @@
     },
     {
       "name": "cppcheck",
+      "display": "cppcheck",
+      "covers": "C/C++ defects: out-of-bounds, use-after-free, double free, uninitialized data, leaks",
+      "license": "GPL-3.0 (run as a separate process only)",
       "binary": "cppcheck",
       "image": "nightowl-engines/cppcheck",
       "build": "engines/cppcheck",
@@ -85,6 +100,9 @@
     },
     {
       "name": "lizard",
+      "display": "lizard",
+      "covers": "Cyclomatic complexity and duplicated code (30+ languages)",
+      "license": "MIT",
       "binary": "lizard",
       "image": "nightowl-engines/lizard",
       "build": "engines/lizard",
@@ -103,6 +121,9 @@
     },
     {
       "name": "trivy",
+      "display": "Trivy",
+      "covers": "Infrastructure as code and container base images",
+      "license": "Apache-2.0",
       "binary": "trivy",
       "image": "ghcr.io/aquasecurity/trivy",
       "build": null,
@@ -118,6 +139,9 @@
     },
     {
       "name": "zap",
+      "display": "ZAP (baseline)",
+      "covers": "DAST discovery and passive checks (nightowl pentest)",
+      "license": "Apache-2.0",
       "binary": "zap-baseline.py",
       "image": "docker.io/zaproxy/zap-stable",
       "build": null,
@@ -133,6 +157,9 @@
     },
     {
       "name": "nuclei",
+      "display": "nuclei",
+      "covers": "DAST targeted template checks (nightowl pentest)",
+      "license": "MIT",
       "binary": "nuclei",
       "image": "nightowl-engines/nuclei",
       "build": "engines/nuclei",
