@@ -68,7 +68,7 @@ public sealed partial class LizardEngine(ToolRunner runner, int complexityThresh
                 if (duplicates.StandardOutput.Contains("Total duplicate rate", StringComparison.Ordinal))
                 {
                     var (blocks, rate) = ParseDuplicates(duplicates.StandardOutput, context.RootPath);
-                    findings.AddRange(blocks.Select(DuplicateFinding));
+                    findings.AddRange(blocks.Where(b => b.Copies[0].End - b.Copies[0].Start + 1 >= MinDuplicateLines).Select(DuplicateFinding));
                     if (rate is { } r)
                     {
                         context.Metrics[MetricNames.DuplicationRate] = r;
@@ -84,6 +84,8 @@ public sealed partial class LizardEngine(ToolRunner runner, int complexityThresh
         return new EngineResult(Name, findings, stopwatch.Elapsed, Note: note);
     }
 
+    /// <summary>Blocks shorter than this still count toward the duplication rate but aren't listed one by one.</summary>
+    private const int MinDuplicateLines = 5;
     private const long DuplicationSizeLimitBytes = 25_000_000;
     private static readonly TimeSpan DuplicationTimeout = TimeSpan.FromMinutes(5);
 
