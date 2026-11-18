@@ -31,7 +31,14 @@ public static partial class Fingerprint
     public static string ForCode(string ruleId, string path, string? snippet, int? line)
     {
         var normalizedPath = path.Replace('\\', '/').TrimStart('.', '/');
-        var anchor = string.IsNullOrWhiteSpace(snippet) ? $"line:{line}" : NormalizeSnippet(snippet);
+        var anchor = string.IsNullOrWhiteSpace(snippet) ? "" : NormalizeSnippet(snippet);
+        if (anchor.Length == 0)
+        {
+            // Nothing but whitespace — or, since comment stripping, nothing but a comment:
+            // fall back to the line, or every such finding in the file would share one id.
+            anchor = $"line:{line}";
+        }
+
         return Hash("code", ruleId, normalizedPath, anchor);
     }
 
@@ -61,7 +68,78 @@ public static partial class Fingerprint
             ?? all[0];
     }
 
-    internal static string NormalizeSnippet(string snippet) => Whitespace().Replace(snippet, " ").Trim();
+    internal static string NormalizeSnippet(string snippet) => Whitespace().Replace(StripComments(snippet), " ").Trim();
+
+    /// <summary>
+    /// Removes //, /* */ and # comments so editing a comment (or moving code between a //
+    /// language and a # language style) does not mint a new fingerprint and re-open triage.
+    /// The scan is quote-aware: comment markers inside '...', "..." or `...` literals are
+    /// kept, and a # only starts a comment at a word boundary, so "http://a#b" and C#
+    /// member access survive. It is a heuristic over a snippet, not a parser — the failure
+    /// mode is keeping a comment (an id changes when the comment does), never eating code.
+    /// </summary>
+    internal static string StripComments(string snippet)
+    {
+        var result = new StringBuilder(snippet.Length);
+        var quote = '\0';
+        for (var i = 0; i < snippet.Length; i++)
+        {
+            var c = snippet[i];
+            if (quote != '\0')
+            {
+                result.Append(c);
+                if (c == '\\' && i + 1 < snippet.Length)
+                {
+                    result.Append(snippet[++i]);
+                }
+                else if (c == quote)
+                {
+                    quote = '\0';
+                }
+
+                continue;
+            }
+
+            if (c is '"' or '\'' or '`')
+            {
+                quote = c;
+                result.Append(c);
+                continue;
+            }
+
+            if (c == '/' && i + 1 < snippet.Length && snippet[i + 1] == '/' &&
+                (result.Length == 0 || result[^1] != ':'))
+            {
+                // Not "://" — a URL or path separator in a config value is not a comment.
+                i = SkipToEndOfLine(snippet, i + 2);
+                continue;
+            }
+
+            if (c == '/' && i + 1 < snippet.Length && snippet[i + 1] == '*')
+            {
+                var end = snippet.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                i = end < 0 ? snippet.Length - 1 : end + 1;
+                continue;
+            }
+
+            if (c == '#' && (result.Length == 0 || char.IsWhiteSpace(result[^1])))
+            {
+                i = SkipToEndOfLine(snippet, i + 1);
+                continue;
+            }
+
+            result.Append(c);
+        }
+
+        return result.ToString();
+    }
+
+    /// <summary>Index of the newline ending the line that starts before <paramref name="from"/>, or the last index.</summary>
+    private static int SkipToEndOfLine(string text, int from)
+    {
+        var newline = text.IndexOf('\n', from);
+        return newline < 0 ? text.Length - 1 : newline - 1;
+    }
 
     private static string Hash(params string[] parts)
     {
