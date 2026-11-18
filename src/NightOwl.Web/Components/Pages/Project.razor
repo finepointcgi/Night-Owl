@@ -11,14 +11,38 @@
     return;
 }
 
-<div class="card">
-    <h2 style="margin-top:0">@_report.Project</h2>
-    <p class="muted">
-        Scanned @_report.StartedAt.ToLocalTime().ToString("g") in @_report.Seconds.ToString("0.0")s ·
-        manifest #@_report.ManifestSequence ·
-        @string.Join(", ", _report.Engines.Select(e => $"{e.Engine} {e.Version}"))
+<header class="page-head">
+    <div>
+        <p class="crumb"><a href="/projects">Projects</a> /</p>
+        <h1>@System.IO.Path.GetFileName(_report.Project)</h1>
+        <p class="muted path">@_report.Project</p>
+    </div>
+    <p class="muted right">
+        Scanned @_report.StartedAt.ToLocalTime().ToString("g") in @_report.Seconds.ToString("0.0")s<br />
+        manifest #@_report.ManifestSequence
     </p>
-    <SeverityCounts Findings="_report.Findings" />
+</header>
+
+<nav class="tabs" aria-label="Project sections">
+    <a href="/project/@Key" class="@(Tab == "summary" ? "active" : "")">Summary</a>
+    <a href="/project/@Key?tab=findings" class="@(Tab == "findings" ? "active" : "")">Findings <span class="pill">@_report.Findings.Count</span></a>
+</nav>
+
+@if (Tab == "summary")
+{
+<section class="kpis">
+    <div class="kpi kpi-critical"><span>Critical</span><b>@ReportStats.Count(_counts, Severity.Critical)</b></div>
+    <div class="kpi kpi-high"><span>High</span><b>@ReportStats.Count(_counts, Severity.High)</b></div>
+    <div class="kpi"><span>Medium</span><b>@ReportStats.Count(_counts, Severity.Medium)</b></div>
+    <div class="kpi"><span>Low</span><b>@(ReportStats.Count(_counts, Severity.Low) + ReportStats.Count(_counts, Severity.Info))</b></div>
+</section>
+
+<section class="grid-2">
+    <div class="card"><h3>Open findings by severity</h3><SeverityDonut Counts="_counts" /></div>
+    <div class="card"><h3>By category</h3><BarList Items="_byCategory" /></div>
+</section>
+
+<div class="card">
     @if (_report.Metrics is { Count: > 0 } metrics)
     {
         <dl class="metrics">
@@ -88,14 +112,21 @@
             }
         </div>
     }
-    @foreach (var failed in _report.Engines.Where(e => !e.Succeeded))
-    {
-        <p class="bad">@failed.Engine failed: @failed.Error</p>
-    }
+    <h3>Engines</h3>
+    <ul class="engines">
+        @foreach (var e in _report.Engines)
+        {
+            <li class="@(e.Succeeded ? "ok" : "bad")"><b>@e.Engine</b> <span class="muted">@e.Version · @e.Seconds.ToString("0.0")s</span>@if (e.Error is not null) { <div>@e.Error</div> } @if (e.Note is not null) { <div class="muted">@e.Note</div> }</li>
+        }
+    </ul>
 </div>
+}
 
+@if (Tab == "findings")
+{
 <div class="card">
     <form method="get" class="filters">
+        <input type="hidden" name="tab" value="findings" />
         <select name="severity">
             <option value="">Any severity</option>
             @foreach (var s in Enum.GetValues<Severity>().Reverse())
@@ -165,6 +196,7 @@
         </table>
     </div>
 </div>
+}
 
 @code {
     [Parameter] public string Key { get; set; } = "";
@@ -172,6 +204,12 @@
     [SupplyParameterFromQuery(Name = "category")] public string? CategoryFilter { get; set; }
     [SupplyParameterFromQuery(Name = "ai")] public string? AiFilter { get; set; }
     [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabParam { get; set; }
+
+    private string Tab => TabParam == "findings" || AiFilter is not null || SeverityFilter is not null || CategoryFilter is not null || Query is not null ? "findings" : "summary";
+    private List<Finding> _open = [];
+    private IReadOnlyDictionary<Severity, int> _counts = new Dictionary<Severity, int>();
+    private IReadOnlyList<(string, int)> _byCategory = [];
 
     private ScanReport? _report;
     private IReadOnlyList<HistoryPoint> _history = [];
@@ -186,6 +224,9 @@
         }
 
         _history = History.Load(_report.Project);
+        _open = ReportStats.Open(_report).ToList();
+        _counts = ReportStats.BySeverity(_open);
+        _byCategory = _open.GroupBy(f => f.Category).OrderByDescending(g => g.Count()).Select(g => (g.Key.ToString(), g.Count())).ToList();
         IEnumerable<Finding> findings = _report.Findings;
         if (Enum.TryParse<Severity>(SeverityFilter, out var minimum))
         {

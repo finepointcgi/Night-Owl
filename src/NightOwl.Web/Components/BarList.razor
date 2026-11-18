@@ -1,0 +1,21 @@
+@* A ranked list of labels with proportional bars. *@
+<ul class="bars">
+    @foreach (var (label, value) in Items)
+    {
+        <li>
+            <span class="bar-label" title="@label">@label</span>
+            <span class="bar-track"><span class="bar-fill" style="width:@Pct(value)%"></span></span>
+            <b>@value</b>
+        </li>
+    }
+    @if (Items.Count == 0)
+    {
+        <li class="muted">Nothing to show.</li>
+    }
+</ul>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<(string Label, int Value)> Items { get; set; } = [];
+
+    private string Pct(int value) => (Items.Count == 0 ? 0 : 100.0 * value / Math.Max(1, Items.Max(i => i.Value))).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+}

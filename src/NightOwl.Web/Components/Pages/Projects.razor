@@ -1,0 +1,85 @@
+@page "/projects"
+@inject ReportArchive Archive
+@inject ScanHistory History
+
+<PageTitle>Projects · Night Owl</PageTitle>
+
+<header class="page-head">
+    <div><h1>Projects</h1><p class="muted">@_rows.Count scanned</p></div>
+    <form method="get" class="filters">
+        <input name="q" value="@Query" placeholder="Search projects" aria-label="Search projects" />
+        <select name="sort" aria-label="Sort">
+            <option value="risk" selected="@(Sort != "name" && Sort != "scan")">Highest risk</option>
+            <option value="scan" selected="@(Sort == "scan")">Latest scan</option>
+            <option value="name" selected="@(Sort == "name")">Name</option>
+        </select>
+        <button type="submit" class="btn">Apply</button>
+    </form>
+</header>
+
+<div class="card table-wrap">
+    <table>
+        <thead><tr><th>Project</th><th>Open findings</th><th>Trend</th><th>Quality</th><th>Last scan</th><th>Engines</th></tr></thead>
+        <tbody>
+            @foreach (var row in Visible())
+            {
+                <tr>
+                    <td><a href="/project/@row.Key"><b>@System.IO.Path.GetFileName(row.Report.Project)</b></a><div class="muted path">@row.Report.Project</div></td>
+                    <td class="wide">
+                        <StackedBar Counts="row.Counts" />
+                        <span class="muted small">
+                            @row.Open open@(ReportStats.Count(row.Counts, Severity.Critical) > 0 ? $" · {ReportStats.Count(row.Counts, Severity.Critical)} critical" : "")@(ReportStats.Count(row.Counts, Severity.High) > 0 ? $" · {ReportStats.Count(row.Counts, Severity.High)} high" : "")
+                        </span>
+                    </td>
+                    <td><Sparkline Values="row.Trend" Label="Open findings over recent scans" /></td>
+                    <td class="muted small">@Quality(row.Report)</td>
+                    <td class="muted">@row.Report.StartedAt.ToLocalTime().ToString("g")</td>
+                    <td>@(row.Report.Engines.Count(e => e.Succeeded)) ok@(row.Report.Engines.Any(e => !e.Succeeded) ? "" : "")@if (row.Report.Engines.Any(e => !e.Succeeded)) { <span class="bad"> · @(row.Report.Engines.Count(e => !e.Succeeded)) failed</span> }</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Visible().Any()) { <p class="muted">No projects match.</p> }
+</div>
+
+@code {
+    private sealed record Row(string Key, ScanReport Report, IReadOnlyDictionary<Severity, int> Counts, int Open, int Risk, IReadOnlyList<int> Trend);
+
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+    [SupplyParameterFromQuery(Name = "sort")] public string? Sort { get; set; }
+
+    private List<Row> _rows = [];
+
+    protected override void OnInitialized()
+    {
+        foreach (var report in Archive.LoadAll())
+        {
+            var open = ReportStats.Open(report).ToList();
+            _rows.Add(new Row(ReportArchive.KeyFor(report.Project), report, ReportStats.BySeverity(open), open.Count, ReportStats.RiskScore(open),
+                History.Load(report.Project).TakeLast(20).Select(p => p.Total).ToList()));
+        }
+    }
+
+    private IEnumerable<Row> Visible()
+    {
+        var rows = string.IsNullOrWhiteSpace(Query) ? _rows : _rows.Where(r => r.Report.Project.Contains(Query, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Sort switch
+        {
+            "name" => rows.OrderBy(r => System.IO.Path.GetFileName(r.Report.Project), StringComparer.OrdinalIgnoreCase),
+            "scan" => rows.OrderByDescending(r => r.Report.StartedAt),
+            _ => rows.OrderByDescending(r => r.Risk),
+        };
+    }
+
+    private static string Quality(ScanReport r)
+    {
+        var parts = new List<string>();
+        if (r.Metrics is { } m)
+        {
+            if (m.TryGetValue(NightOwl.Core.Quality.MetricNames.AverageComplexity, out var c)) { parts.Add($"complexity {c:0.0}"); }
+            if (m.TryGetValue(NightOwl.Core.Quality.MetricNames.DuplicationRate, out var d)) { parts.Add($"{d:0}% duplicated"); }
+        }
+
+        return parts.Count == 0 ? "-" : string.Join(" · ", parts);
+    }
+}

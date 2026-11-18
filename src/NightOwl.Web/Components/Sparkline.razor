@@ -1,0 +1,23 @@
+@if (Values.Count > 1)
+{
+    <svg class="spark" viewBox="0 0 80 24" role="img" aria-label="@Label">
+        <polyline fill="none" stroke-width="1.6" points="@Points()" />
+    </svg>
+}
+else
+{
+    <span class="muted">-</span>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<int> Values { get; set; } = [];
+    [Parameter] public string Label { get; set; } = "Trend";
+
+    private string Points()
+    {
+        var max = Math.Max(1, Values.Max());
+        var min = Values.Min();
+        var span = Math.Max(1, max - min);
+        return string.Join(" ", Values.Select((v, i) => FormattableString.Invariant($"{1 + 78.0 * i / (Values.Count - 1):0.#},{22 - 20.0 * (v - min) / span:0.#}")));
+    }
+}

@@ -1,0 +1,25 @@
+@* One horizontal bar split by severity, used in tables. *@
+<div class="stack" title="@Title()" role="img" aria-label="@Title()">
+    @foreach (var s in Order)
+    {
+        var n = ReportStats.Count(Counts, s);
+        if (n > 0)
+        {
+            <span class="seg-@s" style="flex:@n"></span>
+        }
+    }
+    @if (Counts.Values.Sum() == 0)
+    {
+        <span class="seg-empty" style="flex:1"></span>
+    }
+</div>
+
+@code {
+    private static readonly Severity[] Order = [Severity.Critical, Severity.High, Severity.Medium, Severity.Low, Severity.Info, Severity.Unknown];
+
+    [Parameter, EditorRequired] public IReadOnlyDictionary<Severity, int> Counts { get; set; } = new Dictionary<Severity, int>();
+
+    private string Title() => Counts.Values.Sum() == 0
+        ? "No open findings"
+        : string.Join(", ", Order.Where(s => ReportStats.Count(Counts, s) > 0).Select(s => $"{ReportStats.Count(Counts, s)} {s.ToString().ToLowerInvariant()}"));
+}
