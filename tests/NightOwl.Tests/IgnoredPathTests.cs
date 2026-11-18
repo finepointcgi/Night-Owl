@@ -114,4 +114,15 @@ public class IgnoredPathTests : IDisposable
         Assert.Null(NightOwl.Core.Reports.GitTag.AtHead(_root)); // a nightly build after the release is not the release
         Assert.Null(NightOwl.Core.Reports.GitTag.AtHead(Path.GetTempPath() + "does-not-exist"));
     }
+
+    [Fact]
+    public void Containers_are_tracked_while_running_and_cleanup_is_idempotent()
+    {
+        ToolRunner.TrackContainer("nightowl-test-aaa");
+        Assert.Contains("nightowl-test-aaa", ToolRunner.LiveContainers.Keys);
+
+        ToolRunner.RemoveLiveContainers(); // docker may be absent here; it must not throw
+        Assert.Empty(ToolRunner.LiveContainers);
+        ToolRunner.RemoveLiveContainers();
+    }
 }

@@ -81,33 +81,107 @@ public sealed class ToolRunner(EngineManifest manifest, ToolMode mode = ToolMode
         process.OutputDataReceived += (_, e) => { if (e.Data is not null) { stdout.AppendLine(e.Data); } };
         process.ErrorDataReceived += (_, e) => { if (e.Data is not null) { stderr.AppendLine(e.Data); } };
 
+        if (containerName is not null)
+        {
+            TrackContainer(containerName);
+        }
+
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutSource.CancelAfter(timeout);
         try
         {
-            await process.WaitForExitAsync(timeoutSource.Token);
+            using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutSource.CancelAfter(timeout);
+            try
+            {
+                await process.WaitForExitAsync(timeoutSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                process.Kill(entireProcessTree: true);
+                if (containerName is not null)
+                {
+                    RemoveContainer(containerName);
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+
+                throw new TimeoutException($"{engine} did not finish within {timeout.TotalSeconds:0}s.");
+            }
+
+            return new ToolOutput(process.ExitCode, stdout.ToString(), stderr.ToString());
         }
-        catch (OperationCanceledException)
+        finally
         {
-            process.Kill(entireProcessTree: true);
             if (containerName is not null)
             {
-                RemoveContainer(containerName);
+                LiveContainers.TryRemove(containerName, out _);
             }
+        }
+    }
 
-            if (cancellationToken.IsCancellationRequested)
+    // Containers this process started and has not seen exit. Killing the docker client does not stop its
+    // container, so a SIGTERM or an unhandled exit would orphan it; these handlers remove whatever is left.
+    internal static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> LiveContainers = new();
+    private static readonly object CleanupLock = new();
+    private static bool cleanupRegistered;
+    private static readonly List<System.Runtime.InteropServices.PosixSignalRegistration> SignalRegistrations = [];
+
+    internal static void TrackContainer(string name)
+    {
+        LiveContainers[name] = 0;
+        lock (CleanupLock)
+        {
+            if (cleanupRegistered)
             {
-                throw;
+                return;
             }
 
-            throw new TimeoutException($"{engine} did not finish within {timeout.TotalSeconds:0}s.");
+            cleanupRegistered = true;
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => RemoveLiveContainers();
+            foreach (var signal in new[] { System.Runtime.InteropServices.PosixSignal.SIGTERM, System.Runtime.InteropServices.PosixSignal.SIGHUP })
+            {
+                try
+                {
+                    // Not cancelled, so the default action (exit) still follows.
+                    SignalRegistrations.Add(System.Runtime.InteropServices.PosixSignalRegistration.Create(signal, _ => RemoveLiveContainers()));
+                }
+                catch (PlatformNotSupportedException)
+                {
+                    // Windows has no SIGHUP; ProcessExit still covers a normal exit.
+                }
+            }
+        }
+    }
+
+    /// <summary>Removes every container this process started that is still running. Safe to call more than once.</summary>
+    internal static void RemoveLiveContainers()
+    {
+        var names = LiveContainers.Keys.ToList();
+        if (names.Count == 0)
+        {
+            return;
         }
 
-        return new ToolOutput(process.ExitCode, stdout.ToString(), stderr.ToString());
+        LiveContainers.Clear();
+        try
+        {
+            using var remove = Process.Start(new ProcessStartInfo("docker", ["rm", "-f", .. names])
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            });
+            remove?.WaitForExit(TimeSpan.FromSeconds(30));
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // docker isn't available; nothing was started.
+        }
     }
 
     private static void ConfigureLocal(
@@ -137,7 +211,7 @@ public sealed class ToolRunner(EngineManifest manifest, ToolMode mode = ToolMode
         var containerName = $"nightowl-{engine}-{Guid.NewGuid():N}"[..40];
         foreach (var argument in (string[])
         [
-            "run", "--rm", "--name", containerName,
+            "run", "--rm", "--name", containerName, "--label", "nightowl=1",
             "--network", "bridge",
             // DAST engines reach Night Owl's scope proxy on the host. Docker Desktop defines this
             // name already; on Linux it needs mapping to the bridge gateway.

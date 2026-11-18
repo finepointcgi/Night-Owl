@@ -57,7 +57,7 @@ public sealed partial class TrivyImageEngine(ToolRunner runner, IReadOnlyList<st
                 continue;
             }
 
-            findings.AddRange(Parse(await File.ReadAllTextAsync(reportPath, cancellationToken), target, Name));
+            findings.AddRange(GroupIfMany(Parse(await File.ReadAllTextAsync(reportPath, cancellationToken), target, Name), target, Name));
         }
 
         // One unreachable image (private registry, typo) should not hide the others' results.
@@ -112,6 +112,48 @@ public sealed partial class TrivyImageEngine(ToolRunner runner, IReadOnlyList<st
         }
 
         return findings;
+    }
+
+    /// <summary>An image with at least this many vulnerabilities is reported as one "update the base image" finding.</summary>
+    public const int GroupThreshold = 5;
+
+    /// <summary>
+    /// One stale base image can bring dozens of CVEs that all have the same fix: pull a newer image. Past
+    /// <see cref="GroupThreshold"/> they are folded into a single finding (worst severity, every CVE id listed
+    /// as an alias) so the report shows one decision instead of dozens.
+    /// </summary>
+    public static IReadOnlyList<Finding> GroupIfMany(IReadOnlyList<Finding> findings, ImageTarget target, string engine)
+    {
+        if (findings.Count < GroupThreshold)
+        {
+            return findings;
+        }
+
+        var worst = findings.Max(f => f.Severity);
+        var counts = string.Join(", ", findings.GroupBy(f => f.Severity).OrderByDescending(g => g.Key)
+            .Select(g => $"{g.Count()} {g.Key.ToString().ToLowerInvariant()}"));
+        var byPackage = findings.GroupBy(f => f.Package!.Name).OrderByDescending(g => g.Max(f => f.Severity)).ThenByDescending(g => g.Count()).ToList();
+        var lines = byPackage.Take(10).Select(g => $"{g.Key}: {g.Count()} ({string.Join(", ", g.OrderByDescending(f => f.Severity).Take(3).Select(f => f.RuleId))}{(g.Count() > 3 ? ", ..." : "")})");
+        var more = byPackage.Count > 10 ? $" and {byPackage.Count - 10} more packages" : "";
+        var package = new PackageRef(target.Reference, "", "container image");
+
+        return
+        [
+            new Finding
+            {
+                Id = Fingerprint.ForVulnerability(package, "image-outdated", []),
+                Category = FindingCategory.Vulnerability,
+                Severity = worst,
+                RuleId = "image/outdated-base",
+                Title = $"Base image {target.Reference} has {findings.Count} known vulnerabilities ({counts}) - update it",
+                Description = $"These come from the image itself, so rebuilding on a current tag of it usually clears most of them. Affected packages: {string.Join("; ", lines)}{more}.",
+                Package = package,
+                Location = target.Dockerfile is null ? null : new SourceLocation(target.Dockerfile, target.Line),
+                Aliases = findings.Select(f => f.RuleId).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToList(),
+                References = findings.SelectMany(f => f.References).Distinct().Take(10).ToList(),
+                Engines = [engine],
+            },
+        ];
     }
 
     /// <summary>
