@@ -8,6 +8,7 @@ class Db {
         var cmd = new SqlCommand("SELECT * FROM users WHERE name = '" + name + "'", conn);
         var cmd2 = new SqlCommand($"SELECT * FROM users WHERE name = '{name}'", conn);
         var ok = new SqlCommand("SELECT * FROM users WHERE name = @name", conn);
+        var drop = new SqlCommand($"DROP DATABASE IF EXISTS \"{name}\"", conn);
         var f = new BinaryFormatter();
         var h = MD5.Create();
         Process.Start("cmd", "/c " + name);

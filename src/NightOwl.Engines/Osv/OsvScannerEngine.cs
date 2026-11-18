@@ -17,7 +17,7 @@ public sealed class OsvScannerEngine(ToolRunner runner) : IEngine
         var stopwatch = Stopwatch.StartNew();
         var output = await runner.RunAsync(
             Name,
-            ["scan", "source", "--recursive", "--format", "json", ToolRunner.SourceToken],
+            ["scan", "source", "--recursive", "--format", "json", .. Exclusions.OsvScanner(context.Excluded, context.RootPath), ToolRunner.SourceToken],
             context.RootPath, context.WorkDirectory, TimeSpan.FromMinutes(10), cancellationToken);
 
         // 0 = clean, 1 = vulnerabilities found, 128 = no packages found. Anything else is a real error.

@@ -4,7 +4,8 @@ using NightOwl.Core.Findings;
 
 namespace NightOwl.Core.Reports;
 
-public sealed record EngineRun(string Engine, string Version, bool Succeeded, double Seconds, string? Error);
+/// <param name="Note">Something worth knowing about a run that still succeeded, e.g. a check that was skipped to keep the scan fast.</param>
+public sealed record EngineRun(string Engine, string Version, bool Succeeded, double Seconds, string? Error, string? Note = null);
 
 /// <summary>Everything one scan produced. Written to .nightowl/last-scan.json and read by the dashboard.</summary>
 public sealed record ScanReport

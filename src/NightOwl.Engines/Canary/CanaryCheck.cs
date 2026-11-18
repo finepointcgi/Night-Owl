@@ -24,6 +24,7 @@ public static class CanaryCheck
         new("osv-scanner", "GHSA-35jh-r3h4-6jhm"),
         new("gitleaks", "secret/github-pat"),
         new("opengrep", "nightowl.csharp.insecure-deserialization"),
+        new("opengrep", "nightowl.csharp.sql-ddl-interpolation"),
         new("opengrep", "nightowl.js.eval"),
         new("opengrep", "nightowl.python.subprocess-shell"),
         new("opengrep", "nightowl.go.tls-validation-disabled"),

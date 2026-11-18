@@ -37,7 +37,7 @@ public sealed class OpengrepEngine(ToolRunner runner, IReadOnlyList<string>? ext
         var output = await runner.RunAsync(
             Name,
             ["scan", "--config", $"{ToolRunner.WorkToken}/{RulesFolder}", "--sarif", "--output", $"{ToolRunner.WorkToken}/{ReportFile}",
-                "--quiet", "--disable-version-check", ToolRunner.SourceToken],
+                "--quiet", "--disable-version-check", .. Exclusions.Opengrep(context.Excluded), ToolRunner.SourceToken],
             context.RootPath, context.WorkDirectory, TimeSpan.FromMinutes(20), cancellationToken);
 
         var reportPath = Path.Combine(context.WorkDirectory, ReportFile);

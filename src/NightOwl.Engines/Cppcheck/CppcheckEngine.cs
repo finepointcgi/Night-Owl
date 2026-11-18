@@ -59,7 +59,7 @@ public sealed class CppcheckEngine(ToolRunner runner) : IEngine
             Name,
             ["--enable=warning,portability", "--quiet", "--suppress=missingIncludeSystem", "--suppress=missingInclude",
                 "-j", Math.Clamp(Environment.ProcessorCount, 1, 8).ToString(System.Globalization.CultureInfo.InvariantCulture),
-                "-i", $"{ToolRunner.SourceToken}/node_modules", "-i", $"{ToolRunner.SourceToken}/.git",
+                "-i", $"{ToolRunner.SourceToken}/node_modules", "-i", $"{ToolRunner.SourceToken}/.git", .. Exclusions.Cppcheck(context.Excluded, ToolRunner.SourceToken),
                 "--output-format=sarif", $"--output-file={ToolRunner.WorkToken}/{ReportFile}", ToolRunner.SourceToken],
             context.RootPath, context.WorkDirectory, TimeSpan.FromMinutes(30), cancellationToken);
 
