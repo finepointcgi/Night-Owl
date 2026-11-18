@@ -98,6 +98,24 @@ public class IgnoredPathTests : IDisposable
     }
 
     [Fact]
+    public void A_release_tag_on_head_is_found_and_only_while_head_is_on_it()
+    {
+        if (!Git(_root, "init", "-q")) { return; } // git not installed: nothing to assert
+        File.WriteAllText(Path.Combine(_root, "a.txt"), "1");
+        Git(_root, "add", ".");
+        Git(_root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "one");
+        Assert.Null(NightOwl.Core.Reports.GitTag.AtHead(_root));
+
+        Git(_root, "-c", "user.name=t", "-c", "user.email=t@example.com", "tag", "-a", "v1.0", "-m", "release");
+        Assert.Equal("v1.0", NightOwl.Core.Reports.GitTag.AtHead(_root));
+
+        File.WriteAllText(Path.Combine(_root, "a.txt"), "2");
+        Git(_root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-am", "two");
+        Assert.Null(NightOwl.Core.Reports.GitTag.AtHead(_root)); // a nightly build after the release is not the release
+        Assert.Null(NightOwl.Core.Reports.GitTag.AtHead(Path.GetTempPath() + "does-not-exist"));
+    }
+
+    [Fact]
     public void Containers_are_tracked_while_running_and_cleanup_is_idempotent()
     {
         ToolRunner.TrackContainer("nightowl-test-aaa");

@@ -1,0 +1,42 @@
+@* Severity split as a ring. Server-rendered SVG: no JavaScript, works offline. *@
+<figure class="donut">
+    <svg viewBox="0 0 120 120" role="img" aria-label="Open findings by severity">
+        <circle cx="60" cy="60" r="@R" fill="none" stroke="var(--border)" stroke-width="14" />
+        @foreach (var seg in Segments())
+        {
+            <circle cx="60" cy="60" r="@R" fill="none" stroke-width="14" class="seg-@seg.Severity"
+                    stroke-dasharray="@seg.Dash" stroke-dashoffset="@seg.Offset" transform="rotate(-90 60 60)" />
+        }
+        <text x="60" y="58" text-anchor="middle" class="donut-n">@Total</text>
+        <text x="60" y="74" text-anchor="middle" class="donut-l">open</text>
+    </svg>
+    <ul class="legend">
+        @foreach (var s in Order)
+        {
+            <li><i class="dot seg-@s"></i>@s <b>@ReportStats.Count(Counts, s)</b></li>
+        }
+    </ul>
+</figure>
+
+@code {
+    private const double R = 46;
+    private static readonly Severity[] Order = [Severity.Critical, Severity.High, Severity.Medium, Severity.Low, Severity.Info];
+
+    [Parameter, EditorRequired] public IReadOnlyDictionary<Severity, int> Counts { get; set; } = new Dictionary<Severity, int>();
+
+    private int Total => Counts.Values.Sum();
+
+    private IEnumerable<(Severity Severity, string Dash, string Offset)> Segments()
+    {
+        var circumference = 2 * Math.PI * R;
+        double used = 0;
+        foreach (var s in Order)
+        {
+            var n = ReportStats.Count(Counts, s);
+            if (n == 0 || Total == 0) { continue; }
+            var len = circumference * n / Total;
+            yield return (s, FormattableString.Invariant($"{len:0.##} {circumference - len:0.##}"), FormattableString.Invariant($"{-used:0.##}"));
+            used += len;
+        }
+    }
+}

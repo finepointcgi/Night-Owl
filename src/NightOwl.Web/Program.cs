@@ -9,6 +9,9 @@ var nightowlHome = NightOwl.Core.Updates.ManifestStore.Default().HomeDirectory;
 builder.Services.AddSingleton(new ReportArchive(nightowlHome));
 builder.Services.AddSingleton(new NightOwl.Core.Triage.TriageStore(nightowlHome));
 builder.Services.AddSingleton(new ScanHistory(nightowlHome));
+builder.Services.AddSingleton(new ScanVault(nightowlHome));
+builder.Services.AddSingleton(new ProjectTags(nightowlHome));
+builder.Services.AddSingleton(new NightOwl.Web.StigStore(nightowlHome));
 builder.Services.AddHostedService<NightOwl.Web.MonitorService>();
 
 builder.Services.AddRazorComponents()
@@ -44,6 +47,7 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+NightOwl.Web.ExportEndpoints.Map(app);
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

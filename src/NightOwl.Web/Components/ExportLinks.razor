@@ -1,0 +1,29 @@
+@using NightOwl.Web
+@* Download links for one project's scan. Plain links, so a download works without a live connection. *@
+<span class="export-links">
+    @foreach (var (format, label, _) in ExportEndpoints.Formats)
+    {
+        if (format == "ckl" && Stig is null)
+        {
+            <span class="disabled" title="Import a STIG on the Exports page first">@label</span>
+        }
+        else
+        {
+            <a href="@Href(format)" download>@label</a>
+        }
+    }
+</span>
+
+@code {
+    [Parameter, EditorRequired] public string Key { get; set; } = "";
+    [Parameter] public string? Scan { get; set; }
+    [Parameter] public string? Stig { get; set; }
+
+    private string Href(string format)
+    {
+        var query = new List<string>();
+        if (Scan is not null) { query.Add("scan=" + Uri.EscapeDataString(Scan)); }
+        if (format == "ckl" && Stig is not null) { query.Add("stig=" + Uri.EscapeDataString(Stig)); }
+        return $"/export/{Key}/{format}" + (query.Count == 0 ? "" : "?" + string.Join("&", query));
+    }
+}

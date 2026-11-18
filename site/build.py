@@ -24,6 +24,7 @@ PAGES = [
     ("rules", "Rule catalog", "Every built-in code rule, generated from the rule files"),
     ("staying-current", "Staying current", "Signed updates, the watch bot, canary and rollback"),
     ("ci", "CI and editors", "GitHub, GitLab, pre-commit hook, VS Code"),
+    ("dashboard", "The dashboard", "Overview, history, tags, exports and STIG checklists"),
     ("sbom", "SBOM, monitoring and fixes", "SBOM, VEX, reachability, history, auto-fix"),
     ("ai-pentest", "AI review and pen testing", "Exploitability review and authorized active testing"),
     ("troubleshooting", "FAQ and troubleshooting", "Common problems, limits and the roadmap"),

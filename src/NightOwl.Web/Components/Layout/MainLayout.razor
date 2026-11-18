@@ -1,11 +1,17 @@
 @inherits LayoutComponentBase
+@inject NavigationManager Nav
 
-<div class="shell">
-    <header class="topbar">
-        <a href="/">Night Owl</a>
-        <span>open-source SCA, license and security scanning</span>
-    </header>
-    @Body
+<div class="app">
+    <aside class="sidebar">
+        <a class="brand" href="/"><span class="logo" aria-hidden="true">🦉</span> Night Owl</a>
+        <nav aria-label="Main">
+            <a href="/" class="@Active("/", exact: true)"><span class="ico">◧</span> Overview</a>
+            <a href="/projects" class="@Active("/projects")"><span class="ico">▤</span> Projects</a>
+            <a href="/exports" class="@Active("/exports")"><span class="ico">⇩</span> Exports</a>
+        </nav>
+        <p class="side-foot muted">Open-source SCA, SAST, secrets and IaC scanning</p>
+    </aside>
+    <main class="content">@Body</main>
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
@@ -13,3 +19,14 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private string Active(string prefix, bool exact = false)
+    {
+        var path = "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].TrimEnd('/');
+        path = path == "/" ? "/" : path;
+        var on = exact ? path == prefix : path.StartsWith(prefix, StringComparison.Ordinal)
+            || (prefix == "/projects" && path.StartsWith("/project/", StringComparison.Ordinal));
+        return on ? "active" : "";
+    }
+}

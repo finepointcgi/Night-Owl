@@ -1,46 +1,102 @@
 @page "/"
 @inject ReportArchive Archive
+@inject ScanHistory History
 
-<PageTitle>Night Owl</PageTitle>
+<PageTitle>Overview · Night Owl</PageTitle>
 
-@if (_reports.Count == 0)
+<header class="page-head">
+    <div><h1>Overview</h1><p class="muted">Every project you have scanned on this machine.</p></div>
+    <a class="btn" href="/exports">Export…</a>
+</header>
+
+@if (_rows.Count == 0)
 {
-    <div class="card">
+    <div class="card empty">
         <h2>No scans yet</h2>
         <p class="muted">Run a scan and it will show up here:</p>
         <pre><code>nightowl scan path/to/project</code></pre>
         <p class="muted">Reports are read from <code>@Archive.Directory</code>.</p>
     </div>
+    return;
 }
-else
-{
-    <div class="card table-wrap">
-        <table>
-            <thead>
-                <tr><th>Project</th><th>Last scan</th><th>Findings</th><th>Engines</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var report in _reports)
-                {
-                    <tr>
-                        <td><a href="/project/@ReportArchive.KeyFor(report.Project)">@report.Project</a></td>
-                        <td class="muted">@report.StartedAt.ToLocalTime().ToString("g")</td>
-                        <td><SeverityCounts Findings="report.Findings" /></td>
-                        <td>
-                            @foreach (var engine in report.Engines)
-                            {
-                                <span class="@(engine.Succeeded ? "ok" : "bad")" title="@engine.Error">@engine.Engine </span>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+
+<section class="kpis">
+    <div class="kpi"><span>Projects</span><b>@_rows.Count</b></div>
+    <div class="kpi kpi-critical"><span>Critical</span><b>@ReportStats.Count(_total, Severity.Critical)</b></div>
+    <div class="kpi kpi-high"><span>High</span><b>@ReportStats.Count(_total, Severity.High)</b></div>
+    <div class="kpi"><span>Open findings</span><b>@_total.Values.Sum()</b></div>
+    <div class="kpi @(_failedEngines > 0 ? "kpi-warn" : "")"><span>Engine problems</span><b>@_failedEngines</b></div>
+</section>
+
+<section class="grid-2">
+    <div class="card">
+        <h3>Open findings by severity</h3>
+        <SeverityDonut Counts="_total" />
     </div>
-}
+    <div class="card">
+        <h3>By category</h3>
+        <BarList Items="_byCategory" />
+    </div>
+</section>
+
+<section class="grid-2">
+    <div class="card">
+        <h3>Most common problems</h3>
+        <BarList Items="_topRules" />
+    </div>
+    <div class="card">
+        <h3>Packages to update first</h3>
+        <BarList Items="_topPackages" />
+    </div>
+</section>
+
+<div class="card table-wrap">
+    <h3>Projects by risk</h3>
+    <table>
+        <thead><tr><th>Project</th><th>Open findings</th><th>Trend</th><th>Last scan</th></tr></thead>
+        <tbody>
+            @foreach (var row in _rows.OrderByDescending(r => r.Risk).Take(8))
+            {
+                <tr>
+                    <td><a href="/project/@row.Key">@System.IO.Path.GetFileName(row.Report.Project)</a><div class="muted path">@row.Report.Project</div></td>
+                    <td class="wide"><StackedBar Counts="row.Counts" /><span class="muted small">@row.Open open</span></td>
+                    <td><Sparkline Values="row.Trend" Label="Open findings over recent scans" /></td>
+                    <td class="muted">@row.Report.StartedAt.ToLocalTime().ToString("g")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (_rows.Count > 8) { <p class="muted"><a href="/projects">All @_rows.Count projects</a></p> }
+</div>
 
 @code {
-    private IReadOnlyList<ScanReport> _reports = [];
+    private sealed record Row(string Key, ScanReport Report, IReadOnlyDictionary<Severity, int> Counts, int Open, int Risk, IReadOnlyList<int> Trend);
 
-    protected override void OnInitialized() => _reports = Archive.LoadAll();
+    private List<Row> _rows = [];
+    private IReadOnlyDictionary<Severity, int> _total = new Dictionary<Severity, int>();
+    private IReadOnlyList<(string, int)> _byCategory = [];
+    private IReadOnlyList<(string, int)> _topRules = [];
+    private IReadOnlyList<(string, int)> _topPackages = [];
+    private int _failedEngines;
+
+    protected override void OnInitialized()
+    {
+        var all = new List<Finding>();
+        foreach (var report in Archive.LoadAll())
+        {
+            var open = ReportStats.Open(report).ToList();
+            all.AddRange(open);
+            _failedEngines += report.Engines.Count(e => !e.Succeeded);
+            var trend = History.Load(report.Project).TakeLast(20).Select(p => p.Total).ToList();
+            _rows.Add(new Row(ReportArchive.KeyFor(report.Project), report, ReportStats.BySeverity(open), open.Count, ReportStats.RiskScore(open), trend));
+        }
+
+        _total = ReportStats.BySeverity(all);
+        _byCategory = all.GroupBy(f => f.Category).OrderByDescending(g => g.Count()).Select(g => (g.Key.ToString(), g.Count())).ToList();
+        _topRules = all.GroupBy(f => f.RuleId).OrderByDescending(g => g.Count()).Take(6)
+            .Select(g => ($"{g.Key} · {g.First().Title.Split(" in ")[0]}", g.Count())).ToList();
+        _topPackages = all.Where(f => f.Package is not null && f.Category == FindingCategory.Vulnerability)
+            .GroupBy(f => $"{f.Package!.Name}@{f.Package.Version}").OrderByDescending(g => g.Count()).Take(6)
+            .Select(g => (g.Key, g.Count())).ToList();
+    }
 }

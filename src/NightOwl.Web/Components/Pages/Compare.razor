@@ -1,0 +1,84 @@
+@page "/project/{Key}/compare"
+@inject ReportArchive Archive
+@inject ScanVault Vault
+
+<PageTitle>Compare scans · Night Owl</PageTitle>
+
+@if (_diff is null || _from is null || _to is null)
+{
+    <div class="card"><h2>Scans not found</h2><p class="muted">One of the scans was removed or the link is wrong.</p><a href="/project/@Key?tab=scans">Back to scan history</a></div>
+    return;
+}
+
+<header class="page-head">
+    <div>
+        <p class="crumb"><a href="/projects">Projects</a> / <a href="/project/@Key?tab=scans">@System.IO.Path.GetFileName(_to.Project)</a> /</p>
+        <h1>Changes between scans</h1>
+        <p class="muted">@_from.StartedAt.ToLocalTime().ToString("g") <b>→</b> @_to.StartedAt.ToLocalTime().ToString("g")</p>
+    </div>
+</header>
+
+<section class="kpis">
+    <div class="kpi kpi-critical"><span>New</span><b>@_diff.New.Count</b></div>
+    <div class="kpi"><span>Resolved</span><b class="ok">@_diff.Resolved.Count</b></div>
+    <div class="kpi"><span>Changed</span><b>@_diff.Changed.Count</b></div>
+    <div class="kpi"><span>Unchanged</span><b>@_diff.Unchanged</b></div>
+</section>
+
+<div class="card table-wrap">
+    <h3>New since the earlier scan</h3>
+    @Table(_diff.New)
+</div>
+<div class="card table-wrap">
+    <h3>Resolved since the earlier scan</h3>
+    @Table(_diff.Resolved)
+</div>
+@if (_diff.Changed.Count > 0)
+{
+    <div class="card table-wrap">
+        <h3>Changed severity or triage</h3>
+        <table>
+            <thead><tr><th>Finding</th><th>Before</th><th>Now</th></tr></thead>
+            <tbody>
+                @foreach (var (before, after) in _diff.Changed)
+                {
+                    <tr><td>@after.Title</td><td>@before.Severity, @before.Triage</td><td>@after.Severity, @after.Triage</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public string Key { get; set; } = "";
+    [SupplyParameterFromQuery(Name = "from")] public string? From { get; set; }
+    [SupplyParameterFromQuery(Name = "to")] public string? To { get; set; }
+
+    private ScanReport? _from, _to;
+    private ScanDiff? _diff;
+
+    protected override void OnParametersSet()
+    {
+        var latest = Archive.LoadAll().FirstOrDefault(r => ReportArchive.KeyFor(r.Project) == Key);
+        if (latest is null || From is null || To is null)
+        {
+            return;
+        }
+
+        // The latest report is always available, even if the vault never saw it (scanned before history existed).
+        ScanReport? Get(string id) => id == ScanVault.IdFor(latest) ? latest : Vault.Load(latest.Project, id);
+        _from = Get(From);
+        _to = Get(To);
+        _diff = _from is null || _to is null ? null : ScanDiff.Compare(_from, _to);
+    }
+
+    private static RenderFragment Table(IReadOnlyList<Finding> findings) => builder =>
+    {
+        if (findings.Count == 0) { builder.AddMarkupContent(0, "<p class=\"muted\">None.</p>"); return; }
+        var rows = string.Concat(findings.Take(200).Select(f =>
+            $"<tr><td><span class=\"sev sev-{f.Severity}\">{f.Severity.ToString().ToUpperInvariant()}</span></td><td>{System.Net.WebUtility.HtmlEncode(f.Category.ToString())}</td>" +
+            $"<td>{System.Net.WebUtility.HtmlEncode(f.Title)}<div class=\"muted\"><code>{System.Net.WebUtility.HtmlEncode(f.Location?.Path ?? f.RuleId)}</code></div></td></tr>"));
+        builder.AddMarkupContent(1, $"<table><thead><tr><th>Severity</th><th>Category</th><th>Finding</th></tr></thead><tbody>{rows}</tbody></table>" +
+            (findings.Count > 200 ? $"<p class=\"muted\">Showing 200 of {findings.Count}.</p>" : ""));
+    };
+}

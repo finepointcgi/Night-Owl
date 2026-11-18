@@ -64,7 +64,7 @@ nightowl scan . --format markdown --output summary.md</code></pre>
 
 <h2 id="dashboard">6. The dashboard (optional)</h2>
 <pre><code>dotnet run --project src/NightOwl.Web</code></pre>
-<p>A web UI over your saved scans: every project, findings by severity, a trend chart, triage buttons, and daily re-checks for new advisories while it runs. It listens on localhost; to expose it to a network you must set <code>NIGHTOWL_DASHBOARD_TOKEN</code> (it refuses to start otherwise).</p>
+<p>A web UI over your saved scans: an overview across projects, each project's history (open an old scan, label releases, see what changed since a release), tags, triage buttons, downloads of HTML/CSV/JSON/SARIF reports and STIG checklists, and daily re-checks for new advisories while it runs. It listens on localhost; to expose it to a network you must set <code>NIGHTOWL_DASHBOARD_TOKEN</code> (it refuses to start otherwise). <a href="dashboard.html">The dashboard guide</a> covers every screen.</p>
 
 <h2 id="where">Where things are stored</h2>
 <p>Reports, SBOMs, triage decisions, caches and the installed engine manifest live in <code>~/.nightowl</code> (change it with <code>NIGHTOWL_HOME</code>). Nothing is written into the repository you scan, except the files <em>you</em> create under <code>.nightowl/</code> (<code>policy.yml</code>, <code>ignore</code>, shared <code>triage.json</code>).</p>

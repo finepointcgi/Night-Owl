@@ -1,0 +1,82 @@
+@page "/exports"
+@using NightOwl.Web
+@inject ReportArchive Archive
+@inject StigStore Stigs
+@inject ProjectTags Tags
+
+<PageTitle>Exports · Night Owl</PageTitle>
+
+<header class="page-head">
+    <div><h1>Exports</h1><p class="muted">Download reports and checklists for any scanned project.</p></div>
+</header>
+
+<div class="card">
+    <h3>Projects</h3>
+    @if (_stigs.Count > 0)
+    {
+        <form method="get" class="filters">
+            <label class="muted small" for="stig">STIG for checklists</label>
+            <select id="stig" name="stig" onchange="this.form.submit()">
+                @foreach (var s in _stigs) { <option value="@s" selected="@(s == Stig)">@s</option> }
+            </select>
+            <noscript><button type="submit" class="btn">Use</button></noscript>
+        </form>
+    }
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Project</th><th>Last scan</th><th>Download</th></tr></thead>
+            <tbody>
+                @foreach (var r in _reports)
+                {
+                    var key = ReportArchive.KeyFor(r.Project);
+                    <tr>
+                        <td><a href="/project/@key">@System.IO.Path.GetFileName(r.Project)</a></td>
+                        <td class="muted">@r.StartedAt.ToLocalTime().ToString("g")</td>
+                        <td><ExportLinks Key="@key" Stig="@Stig" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (_reports.Count == 0) { <p class="muted">Nothing scanned yet.</p> }
+</div>
+
+<div class="card">
+    <h3>All projects in one file</h3>
+    <p class="muted small">Every finding from the latest scan of each project, with a Project column.</p>
+    <p><a class="btn" href="/export/all/csv" download>All projects (CSV)</a></p>
+    @if (_tags.Count > 0)
+    {
+        <p class="muted small">Or only projects with a tag:</p>
+        <div class="tag-row">
+            @foreach (var tag in _tags) { <a class="tag" href="/export/all/csv?tag=@Uri.EscapeDataString(tag)" download>@tag</a> }
+        </div>
+    }
+</div>
+
+<div class="card">
+    <h3>STIG checklists</h3>
+    <p class="muted small">
+        A <code>.ckl</code> file opens in DISA STIG Viewer. Download the STIG you need (for example the Application Security and Development STIG)
+        from DISA's public STIG library as a <code>.zip</code>, and import it here. Night Owl then lists every rule of that STIG: rules that scan findings
+        clearly bear on are marked <b>Open</b> with the findings listed, and all others <b>Not Reviewed</b>, because a scan cannot prove a control is met.
+        The matching is automatic (by weakness class), so review the checklist before you submit it.
+    </p>
+    <StigManager />
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "stig")] public string? StigParam { get; set; }
+
+    private IReadOnlyList<ScanReport> _reports = [];
+    private IReadOnlyList<string> _stigs = [];
+    private IReadOnlyList<string> _tags = [];
+    private string? Stig => StigParam is not null && _stigs.Contains(StigParam) ? StigParam : _stigs.FirstOrDefault();
+
+    protected override void OnInitialized()
+    {
+        _reports = Archive.LoadAll();
+        _stigs = Stigs.List();
+        _tags = Tags.All().SelectMany(kv => kv.Value).Distinct().Order(StringComparer.Ordinal).ToList();
+    }
+}

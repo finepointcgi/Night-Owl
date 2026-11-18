@@ -1,0 +1,38 @@
+@rendermode InteractiveServer
+@inject ScanVault Vault
+
+@* Names a scan (for example a release version) so it is easy to find in the history. *@
+@if (_editing)
+{
+    <input @bind="_label" @bind:event="oninput" maxlength="60" placeholder="e.g. v1.4.0" aria-label="Scan label" @onkeydown="OnKey" />
+    <button type="button" class="btn small-btn" @onclick="SaveAsync">Save</button>
+    <button type="button" class="btn small-btn" @onclick="() => _editing = false">Cancel</button>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_label)) { <span class="tag">@_label</span> }
+    <button type="button" class="linklike" @onclick="() => _editing = true">@(string.IsNullOrEmpty(_label) ? "Add label" : "Edit")</button>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Project { get; set; } = "";
+    [Parameter, EditorRequired] public string ScanId { get; set; } = "";
+    [Parameter] public string? Label { get; set; }
+
+    private string? _label;
+    private bool _editing;
+
+    protected override void OnInitialized() => _label = Label;
+
+    private void SaveAsync()
+    {
+        Vault.SetLabel(Project, ScanId, _label);
+        _label = string.IsNullOrWhiteSpace(_label) ? null : _label.Trim();
+        _editing = false;
+    }
+
+    private void OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") { SaveAsync(); }
+    }
+}

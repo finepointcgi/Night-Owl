@@ -1,0 +1,63 @@
+@rendermode InteractiveServer
+@using NightOwl.Web
+@inject StigStore Stigs
+@inject NavigationManager Nav
+
+@* Import DISA STIG files (the .zip you download from public.cyber.mil, or its *-xccdf.xml). *@
+<div class="stig-manager">
+    @if (_names.Count == 0)
+    {
+        <p class="muted">No STIGs imported yet.</p>
+    }
+    else
+    {
+        <ul class="stig-list">
+            @foreach (var name in _names)
+            {
+                <li><code>@name</code> <button type="button" class="linklike" @onclick="() => Remove(name)">Remove</button></li>
+            }
+        </ul>
+    }
+    <label class="btn">
+        Import a STIG…
+        <InputFile OnChange="Upload" accept=".zip,.xml" style="display:none" />
+    </label>
+    @if (_message is not null) { <p class="@(_error ? "bad" : "ok")" role="status">@_message</p> }
+</div>
+
+@code {
+    private const long MaxUpload = 32L * 1024 * 1024;
+    private IReadOnlyList<string> _names = [];
+    private string? _message;
+    private bool _error;
+
+    protected override void OnInitialized() => _names = Stigs.List();
+
+    private async Task Upload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            await using var stream = e.File.OpenReadStream(MaxUpload);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            buffer.Position = 0;
+            var stig = Stigs.Import(buffer, e.File.Name);
+            _message = $"Imported {stig.Title} ({stig.Rules.Count} rules).";
+            _error = false;
+            _names = Stigs.List();
+            Nav.Refresh();
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException)
+        {
+            _message = ex.Message;
+            _error = true;
+        }
+    }
+
+    private void Remove(string name)
+    {
+        Stigs.Delete(name);
+        _names = Stigs.List();
+        Nav.Refresh();
+    }
+}
