@@ -253,6 +253,20 @@ internal static partial class FixCommand
                 return true;
             }
 
+            case "Maven" when manifest is not null && Path.GetFileName(manifest).Equals("pom.xml", StringComparison.OrdinalIgnoreCase):
+            {
+                // Maven has no lockfile to sync: the pom is the fix. Gradle manifests
+                // (build.gradle[.kts]) share the Maven ecosystem name but are not edited.
+                var text = await File.ReadAllTextAsync(manifest);
+                if (PomEditor.SetDependencyVersion(text, name, version) is not { } updated)
+                {
+                    return false;
+                }
+
+                await File.WriteAllTextAsync(manifest, updated);
+                return true;
+            }
+
             default:
                 return false;
         }

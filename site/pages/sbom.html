@@ -34,8 +34,9 @@ nightowl fix . --pr         # commit to a branch and open a pull request</code><
   <tr><td>NuGet</td><td>Package references</td></tr>
   <tr><td>pip</td><td><code>requirements*.txt</code> pins</td></tr>
   <tr><td>Go</td><td>Go modules</td></tr>
+  <tr><td>Maven</td><td><code>pom.xml</code> versions, including <code>${property}</code> versions defined in the same pom</td></tr>
 </table>
-<p>Maven, Cargo and Composer are not supported yet.</p>
+<p>Cargo and Composer are not supported yet. Gradle manifests are not edited yet.</p>
 
 <h2 id="history">Trends over time</h2>
 <p>Every scan appends a point to a per-project history (<code>~/.nightowl/reports/history/*.jsonl</code>). It is plain text on purpose, so there is no native database to ship. The dashboard shows open findings over the last scans, and what is new or resolved since the previous one.</p>
