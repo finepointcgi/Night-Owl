@@ -9,12 +9,12 @@
       "upstream": [
         {
           "repo": "anchore/syft",
-          "tag": "v1.55.0",
+          "tag": "v1.57.1",
           "version": "{tag}",
           "dockerfile": null
         }
       ],
-      "version": "v1.55.0"
+      "version": "v1.57.1"
     },
     {
       "name": "osv-scanner",
@@ -24,12 +24,12 @@
       "upstream": [
         {
           "repo": "google/osv-scanner",
-          "tag": "v2.7.0",
+          "tag": "v2.7.1",
           "version": "{tag}",
           "dockerfile": null
         }
       ],
-      "version": "v2.7.0"
+      "version": "v2.7.1"
     },
     {
       "name": "gitleaks",
@@ -109,12 +109,12 @@
       "upstream": [
         {
           "repo": "aquasecurity/trivy",
-          "tag": "v0.76.1",
+          "tag": "v0.76.2",
           "version": "{bare}",
           "dockerfile": null
         }
       ],
-      "version": "0.76.1"
+      "version": "0.76.2"
     },
     {
       "name": "zap",
