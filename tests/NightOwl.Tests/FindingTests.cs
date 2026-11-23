@@ -31,6 +31,63 @@ public class FingerprintTests
         var after = Fingerprint.ForCode("sql-injection", "src/Db.cs", "query( \"SELECT \" + id )", 42);
         Assert.Equal(before, after);
     }
+
+    [Theory]
+    [InlineData("var x = eval(input); // dangerous", "var x = eval(input);")]
+    [InlineData("var x = eval(input); // a rewritten note", "var x = eval(input);")]
+    [InlineData("run(query)  # TODO fix", "run(query)")]
+    [InlineData("a(); /* note */ b();", "a();  b();")]
+    [InlineData("a(); /* multi\nline */ b();", "a(); b();")]
+    [InlineData("var u = \"http://a/b\"; // c", "var u = \"http://a/b\";")]
+    [InlineData("  indented();\n    more();  ", "indented(); more();")]
+    public void Code_fingerprint_ignores_comments(string withComment, string withoutComment)
+    {
+        var a = Fingerprint.ForCode("rule-x", "src/App.cs", withComment, 1);
+        var b = Fingerprint.ForCode("rule-x", "src/App.cs", withoutComment, 1);
+        Assert.Equal(b, a);
+    }
+
+    [Fact]
+    public void A_comment_only_snippet_falls_back_to_the_line_anchor()
+    {
+        // Stripping leaves nothing to anchor on; without the fallback every comment-only
+        // snippet in a file would collide into a single fingerprint.
+        Assert.Equal(
+            Fingerprint.ForCode("rule", "a.py", "", 5),
+            Fingerprint.ForCode("rule", "a.py", "// just a comment", 5));
+        Assert.NotEqual(
+            Fingerprint.ForCode("rule", "a.py", "// just a comment", 5),
+            Fingerprint.ForCode("rule", "a.py", "// just a comment", 6));
+    }
+
+    [Theory]
+    [InlineData("url = http://example.com/x", "url = http://example.com/y")]
+    [InlineData("x = a#b", "x = a#c")]
+    [InlineData("eval(x)", "eval(y)")]
+    public void Code_fingerprint_still_distinguishes_code_that_only_looks_like_a_comment(string a, string b)
+    {
+        Assert.NotEqual(
+            Fingerprint.ForCode("rule-x", "src/App.cs", a, 1),
+            Fingerprint.ForCode("rule-x", "src/App.cs", b, 1));
+    }
+
+    /// <summary>
+    /// Regression corpus (backlog #3): these ids are pinned literally so a future change to
+    /// fingerprinting shows up here as a deliberate, reviewed break instead of silently
+    /// re-opening triaged findings in the field. Every snippet is comment-free, so each id
+    /// also equals what the pre-comment-stripping normalization produced.
+    /// </summary>
+    [Theory]
+    [InlineData("sql-injection", "src/Db.cs", "query( \"SELECT \" + id )", "fde5b3e116575cc19c033cb54fe9d970")]
+    [InlineData("hardcoded-secret", "src/Config.cs", "var key = \"AKIAIOSFODNN7EXAMPLE\";", "741f5d673a52f2adcdecc49a198740c8")]
+    [InlineData("terraform-public", "infra/main.tf", "cidr_blocks = [\"0.0.0.0/0\"]", "76b37e9237356c1b2aea43f25699ad24")]
+    [InlineData("py-shell", "app/run.py", "os.system(cmd)", "d7635bed6a12bc8db0458480b3da879a")]
+    public void Code_fingerprints_match_the_regression_corpus(string rule, string path, string snippet, string expected) =>
+        Assert.Equal(expected, Fingerprint.ForCode(rule, path, snippet, 1));
+
+    [Fact]
+    public void Vulnerability_fingerprint_matches_the_regression_corpus() =>
+        Assert.Equal("c52e02814b743f7d1434619b97e20e3a", Fingerprint.ForVulnerability(Lodash, "CVE-2021-23337", []));
 }
 
 public class FindingMergerTests
