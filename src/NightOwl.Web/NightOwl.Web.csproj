@@ -4,6 +4,11 @@
     <ProjectReference Include="..\NightOwl.Core\NightOwl.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Optional single sign-on for the dashboard (NIGHTOWL_OIDC_*). MIT. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.13" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>

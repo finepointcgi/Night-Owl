@@ -19,17 +19,27 @@ builder.Services.AddRazorComponents()
 
 // The dashboard shows vulnerabilities and triage controls. Bound to localhost it needs no login; bound to
 // any other address it refuses to start unless NIGHTOWL_DASHBOARD_TOKEN is set, and then requires that token.
-var dashboardToken = Environment.GetEnvironmentVariable("NIGHTOWL_DASHBOARD_TOKEN");
+// Single sign-on (NIGHTOWL_OIDC_*) replaces the token: every person signs in through the identity provider.
+var signIn = NightOwl.Web.DashboardSignIn.FromEnvironment(Environment.GetEnvironmentVariable);
+var dashboardToken = signIn is null ? Environment.GetEnvironmentVariable("NIGHTOWL_DASHBOARD_TOKEN") : null;
 var configuredUrls = builder.Configuration["urls"] ?? builder.Configuration["ASPNETCORE_URLS"] ?? "http://localhost:5000";
-if (string.IsNullOrEmpty(dashboardToken) && !NightOwl.Web.DashboardAccess.AllLoopback(configuredUrls))
+if (signIn is null && string.IsNullOrEmpty(dashboardToken) && !NightOwl.Web.DashboardAccess.AllLoopback(configuredUrls))
 {
-    Console.Error.WriteLine($"error: the dashboard is configured to listen on {configuredUrls}, which is reachable from the network. Set NIGHTOWL_DASHBOARD_TOKEN to a long random value, or bind to localhost.");
+    Console.Error.WriteLine($"error: the dashboard is configured to listen on {configuredUrls}, which is reachable from the network. Set NIGHTOWL_DASHBOARD_TOKEN to a long random value, set NIGHTOWL_OIDC_AUTHORITY and NIGHTOWL_OIDC_CLIENT_ID for single sign-on, or bind to localhost.");
     return 2;
 }
 
+signIn?.AddTo(builder.Services);
+
 var app = builder.Build();
 
-if (!string.IsNullOrEmpty(dashboardToken))
+if (signIn is not null)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+    NightOwl.Web.DashboardSignIn.MapEndpoints(app);
+}
+else if (!string.IsNullOrEmpty(dashboardToken))
 {
     app.Use(NightOwl.Web.DashboardAccess.Middleware(dashboardToken));
 }

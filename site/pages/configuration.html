@@ -120,7 +120,11 @@ quality:
   <tr><td><code>NIGHTOWL_HOME</code></td><td>everything</td><td>Data directory. Default <code>~/.nightowl</code>.</td></tr>
   <tr><td><code>NIGHTOWL_AUTO_UPDATE</code></td><td>scan</td><td><code>0</code> turns off the daily engine-update check.</td></tr>
   <tr><td><code>NIGHTOWL_WEBHOOK</code></td><td>monitor, dashboard</td><td>Default webhook URL for new-advisory alerts.</td></tr>
-  <tr><td><code>NIGHTOWL_DASHBOARD_TOKEN</code></td><td>dashboard</td><td>Required if the dashboard listens on a non-local address.</td></tr>
+  <tr><td><code>NIGHTOWL_DASHBOARD_TOKEN</code></td><td>dashboard</td><td>Required if the dashboard listens on a non-local address, unless single sign-on is set up.</td></tr>
+  <tr><td><code>NIGHTOWL_OIDC_AUTHORITY</code>, <code>NIGHTOWL_OIDC_CLIENT_ID</code></td><td>dashboard</td><td>Single sign-on through an OpenID Connect provider (Keycloak, Entra ID, Okta…). With both set, everyone signs in and no token is needed.</td></tr>
+  <tr><td><code>NIGHTOWL_OIDC_CLIENT_SECRET</code></td><td>dashboard</td><td>The client secret, for a confidential client.</td></tr>
+  <tr><td><code>NIGHTOWL_OIDC_GROUP</code></td><td>dashboard</td><td>Only members of this group (<code>groups</code> or <code>roles</code> claim) may use the dashboard.</td></tr>
+  <tr><td><code>NIGHTOWL_OIDC_REQUIRE_HTTPS_METADATA</code></td><td>dashboard</td><td><code>false</code> only for a test identity provider on plain HTTP.</td></tr>
   <tr><td><code>NIGHTOWL_REPO</code></td><td>install.sh</td><td><code>owner/repo</code> to install from. Default <code>finepointcgi/Night-Owl</code>.</td></tr>
   <tr><td><code>NIGHTOWL_VERSION</code></td><td>install.sh</td><td>Version to install.</td></tr>
   <tr><td><code>NIGHTOWL_INSTALL_DIR</code></td><td>install.sh</td><td>Install location. Default <code>~/.local/bin</code>.</td></tr>

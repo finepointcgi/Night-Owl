@@ -49,6 +49,12 @@ variables:
 <p>By default the dashboard listens on localhost only. If you configure it to listen on an address reachable from the network, it <strong>refuses to start</strong> unless <code>NIGHTOWL_DASHBOARD_TOKEN</code> is set to a long random value. People then supply the token as an <code>Authorization: Bearer</code> header or a cookie (a <code>?token=</code> link also works on a first visit).</p>
 <pre><code>export NIGHTOWL_DASHBOARD_TOKEN="$(openssl rand -hex 32)"
 dotnet run --project src/NightOwl.Web</code></pre>
+<p><strong>Single sign-on instead of a token.</strong> Point the dashboard at any OpenID Connect provider and everyone signs in as themselves (the token is then ignored). Register a client with the redirect URI <code>https://&lt;dashboard&gt;/signin-oidc</code>, then:</p>
+<pre><code>export NIGHTOWL_OIDC_AUTHORITY="https://idp.example.com/realms/company"
+export NIGHTOWL_OIDC_CLIENT_ID="nightowl"
+export NIGHTOWL_OIDC_CLIENT_SECRET="…"      # for a confidential client
+export NIGHTOWL_OIDC_GROUP="appsec"         # optional: only this group</code></pre>
+<p>People outside the group see an access-denied page; <code>/signout</code> ends the dashboard session.</p>
 
 <h2 id="recipes">Recipes</h2>
 <table>
